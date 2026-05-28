@@ -1,4 +1,5 @@
 <resources>
     <string name="app_name">myshare</string>
     <string name="main_activity_title">myshare</string>
+    <string name="share_target_label">Share to myshare</string>
 </resources>

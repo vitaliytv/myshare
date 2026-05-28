@@ -1,9 +1,10 @@
 /** @type {import('@stryker-mutator/core').PartialStrykerOptions} */
 export default {
-  testRunner: 'command',
-  commandRunner: {
-    command: 'bun test --timeout 15000 --preload ./test/happy-dom.preload.js src'
-  },
+  testRunner: 'vitest',
+  // n-cursor запускає Stryker через `npx @stryker-mutator/core@latest` із tmp-каталогу;
+  // явний plugins list змушує Stryker зарезолвити vitest-runner з нашого hoisted node_modules.
+  plugins: ['@stryker-mutator/vitest-runner'],
+  vitest: { configFile: 'vitest.config.js' },
   // inPlace avoids hoisted-node_modules issues in a Bun monorepo sandbox
   inPlace: true,
   // incremental: зберігає результати між запусками, відновлює після SIGURG/kill
@@ -12,10 +13,10 @@ export default {
   mutate: ['src/**/*.{js,vue}', '!src/**/*.test.js'],
   // concurrency:1 prevents parallel workers from competing over inPlace source files
   concurrency: 1,
-  // 60 s per mutant — bun test + happy-dom SFC compilation needs headroom
+  // 60 s per mutant — happy-dom SFC compilation needs headroom
   timeoutMS: 60000,
   reporters: ['json', 'clear-text'],
   jsonReporter: { fileName: 'reports/stryker/mutation.json' },
   tempDirName: 'reports/stryker/.tmp',
-  coverageAnalysis: 'off'
+  coverageAnalysis: 'perTest'
 }
