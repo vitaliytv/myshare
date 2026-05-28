@@ -1,0 +1,19 @@
+version: 1
+project: myshare
+
+adr:
+  dir: docs/adr
+  status_marker: '**Status:** Accepted'
+  date_marker: '**Date:**'
+
+projections:
+  prompts_dir: docs/.docgen/prompts
+  manifest: docs/.docgen/manifest.json
+  default_prompt: projection.md
+
+discovery:
+  enabled: false
+  embeddings_model: null
+  sections:
+    - 'Context and Problem Statement'
+    - 'Decision Outcome'
