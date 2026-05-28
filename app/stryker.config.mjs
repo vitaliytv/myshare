@@ -10,7 +10,16 @@ export default {
   // incremental: зберігає результати між запусками, відновлює після SIGURG/kill
   incremental: true,
   incrementalFile: 'reports/stryker/incremental.json',
-  mutate: ['src/**/*.{js,vue}', '!src/**/*.test.js'],
+  mutate: [
+    'src/**/*.{js,vue}',
+    '!src/**/*.test.js',
+    // app-shell / bootstrap — Quasar.use, mount('#app'); за каноном tauri-rule
+    // platform glue не покривається unit-mutation testing.
+    '!src/main.js',
+    // test infrastructure (mount helpers) — мутувати безглуздо, її «тест» — це
+    // сам факт, що інші тести працюють.
+    '!src/test-utils/**'
+  ],
   // concurrency:1 prevents parallel workers from competing over inPlace source files
   concurrency: 1,
   // 60 s per mutant — happy-dom SFC compilation needs headroom
