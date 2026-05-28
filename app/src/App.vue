@@ -2,6 +2,13 @@
 import { extractSharedUrl } from './shared-url.js'
 import { appendUrlToHistory, loadUrlHistory, saveUrlHistory } from './url-history.js'
 import { fetchPageMeta } from './page-meta.js'
+import { isAndroidPlatform } from './platform.js'
+
+// На Android користувач отримує URL через справжній Share intent (MainActivity →
+// CustomEvent). На desktop dev share intent'у нема — показуємо input як helper,
+// що віддає той самий event і прогоняє його handleAndroidShare.
+const showShareHelper = !isAndroidPlatform()
+const helperInput = ref('')
 
 const urlHistory = ref([])
 // reactive map url → { title, favicon, loading, error }
@@ -31,6 +38,16 @@ function handleAndroidShare(event) {
   ensureMeta(url)
 }
 
+// Кнопка "симулювати share" викликає той самий код-шлях, що й справжній intent
+// з MainActivity.kt. Очищає input після успішного додавання, щоб можна було
+// швидко тестувати ще раз.
+function submitShareHelper() {
+  const text = helperInput.value.trim()
+  if (!text) return
+  handleAndroidShare({ detail: { text } })
+  helperInput.value = ''
+}
+
 onMounted(() => {
   urlHistory.value = loadUrlHistory(window.localStorage)
   // Пiсля cold-start — підтягуємо metadata для всіх збережених URL.
@@ -51,6 +68,25 @@ onUnmounted(() => {
           <q-card-section class="text-center">
             <div class="text-h4 q-mb-sm">myshare</div>
             <div class="text-body1 text-grey-7">Приймає посилання через Android Share</div>
+          </q-card-section>
+
+          <q-card-section v-if="showShareHelper" class="q-pt-none">
+            <q-input
+              v-model="helperInput"
+              dense
+              outlined
+              placeholder="Вставити URL для симуляції share"
+              @keyup.enter="submitShareHelper">
+              <template #append>
+                <q-btn
+                  flat
+                  dense
+                  color="primary"
+                  icon="sym_o_send"
+                  :disable="!helperInput.trim()"
+                  @click="submitShareHelper" />
+              </template>
+            </q-input>
           </q-card-section>
 
           <q-separator />
