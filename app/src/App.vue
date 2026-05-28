@@ -1,19 +1,20 @@
 <script setup>
 import { extractSharedUrl } from './shared-url.js'
+import { appendUrlToHistory, loadUrlHistory, saveUrlHistory } from './url-history.js'
 
-const sharedText = ref('')
-const sharedUrl = computed(() => extractSharedUrl(sharedText.value))
-
-function applySharedText(value) {
-  sharedText.value = typeof value === 'string' ? value : ''
-}
+const urlHistory = ref([])
 
 function handleAndroidShare(event) {
-  applySharedText(event.detail?.text)
+  const text = typeof event.detail?.text === 'string' ? event.detail.text : ''
+  const url = extractSharedUrl(text)
+  if (!url) return
+
+  urlHistory.value = appendUrlToHistory(urlHistory.value, url)
+  saveUrlHistory(window.localStorage, urlHistory.value)
 }
 
 onMounted(() => {
-  applySharedText(window.localStorage.getItem('myshare.sharedText'))
+  urlHistory.value = loadUrlHistory(window.localStorage)
   window.addEventListener('myshare:android-share', handleAndroidShare)
 })
 
@@ -25,23 +26,35 @@ onUnmounted(() => {
 <template>
   <q-layout view="hHh lpR fFf">
     <q-page-container>
-      <q-page class="column items-center justify-center q-pa-lg text-center">
+      <q-page class="column items-center q-pa-lg">
         <q-card class="share-card" flat bordered>
-          <q-card-section>
+          <q-card-section class="text-center">
             <div class="text-h4 q-mb-sm">myshare</div>
             <div class="text-body1 text-grey-7">Приймає посилання через Android Share</div>
           </q-card-section>
 
           <q-separator />
 
-          <q-card-section v-if="sharedUrl">
-            <div class="text-overline text-grey-7">Отримане посилання</div>
-            <a class="shared-url text-primary" :href="sharedUrl" target="_blank" rel="noreferrer">
-              {{ sharedUrl }}
-            </a>
+          <q-card-section v-if="urlHistory.length">
+            <div class="text-overline text-grey-7 q-mb-sm">Прийняті посилання</div>
+            <q-list separator>
+              <q-item
+                v-for="(url, index) in urlHistory"
+                :key="`${index}:${url}`"
+                clickable
+                :href="url"
+                target="_blank"
+                rel="noreferrer"
+                tag="a"
+              >
+                <q-item-section>
+                  <q-item-label class="shared-url text-primary">{{ url }}</q-item-label>
+                </q-item-section>
+              </q-item>
+            </q-list>
           </q-card-section>
 
-          <q-card-section v-else>
+          <q-card-section v-else class="text-center">
             <div class="text-body2 text-grey-7">
               Натисни <strong>Share</strong> для посилання в іншому Android-застосунку й вибери
               <strong>myshare</strong>.
@@ -60,8 +73,6 @@ onUnmounted(() => {
 }
 
 .shared-url {
-  display: block;
   overflow-wrap: anywhere;
-  text-decoration: none;
 }
 </style>

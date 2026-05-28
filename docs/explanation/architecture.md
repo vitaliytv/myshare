@@ -40,17 +40,21 @@ C4Container
   Person(user, "Користувач")
   System_Ext(android, "Android OS")
   Container_Boundary(myshare, "myshare") {
-    Container(frontend, "Frontend", "Vue 3 + Quasar + Vite", "UI, відображення URL")
+    Container(frontend, "Frontend", "Vue 3 + Quasar + Vite", "UI, історія URL")
     Container(native, "Native Shell", "Rust + Tauri 2", "Прийом share intent, мост до UI")
+    ContainerDb(storage, "Local Storage", "Web localStorage", "Історія прийнятих URL")
   }
   Rel(user, android, "Share URL")
   Rel(android, native, "text/plain intent")
   Rel(native, frontend, "Tauri event з URL")
-  Rel(frontend, user, "Показує URL")
+  Rel(frontend, storage, "Записує та читає історію URL")
+  Rel(frontend, user, "Показує список URL")
 ```
 
 ??? engineer "Розташування коду застосунку `myshare` у репозиторії"
     - `app/` — frontend (Vue 3 + Quasar + Vite) і `app/src-tauri/` (Rust + Tauri 2 mobile).
+    - `app/src/shared-url.js` — чистий витяг URL із тексту share intent.
+    - `app/src/url-history.js` — load/save/append для історії URL у `localStorage` під ключем `myshare.sharedUrls`.
     - `scripts/` — допоміжні node-скрипти, зокрема `docs-regen`.
     - `docs/` — джерело істини архітектурної документації `myshare` (arc42 + ADR + проекції).
 
@@ -62,7 +66,8 @@ C4Container
 2. Користувач обирає `myshare` у системному Android share sheet.
 3. Native Shell `myshare` отримує `text/plain` intent із URL.
 4. Native Shell передає URL у Frontend через Tauri event.
-5. Frontend `myshare` відображає отриманий URL на екрані.
+5. Frontend `myshare` витягає URL із тексту, додає його на початок історії й записує оновлений масив до Local Storage (`localStorage['myshare.sharedUrls']`).
+6. Frontend `myshare` відображає актуальну історію URL на екрані; на старті застосунку історія читається з Local Storage.
 
 ## 7. Deployment View
 
@@ -71,6 +76,8 @@ C4Container
 ## 8. Crosscutting Concepts
 
 Розділ заповнюватиметься в міру появи accepted ADR `myshare` за темами: безпека обробки URL, локалізація UI, логування, обробка помилок share intent.
+
+**Локальне сховище.** Frontend `myshare` зберігає історію прийнятих URL у Web `localStorage` під ключем `myshare.sharedUrls` — JSON-масив рядків, найсвіжіший URL першим. Це єдине місце персистентності `myshare` поза runtime; native-частина застосунку нічого окремо не персистить. Опис модуля — [components/url-history](./components/url-history.md).
 
 <!-- AUTOGEN:start id="crosscutting-decisions" hash="sha256:pending" sources="" -->
 Регенерується з accepted ADR `myshare` за тематикою crosscutting (поки порожньо).

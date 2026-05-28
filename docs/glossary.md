@@ -7,3 +7,5 @@
 - **Native Shell** — Rust + Tauri 2 mobile частина застосунку `myshare`, що приймає share intent від Android OS.
 - **Frontend** — Vue 3 + Quasar + Vite частина застосунку `myshare`, що рендерить UI і показує URL.
 - **Tauri event** — канал передачі даних із Native Shell у Frontend у застосунку `myshare`.
+- **Local Storage** — Web `localStorage` WebView Android, у якому Frontend `myshare` персистить історію URL під ключем `myshare.sharedUrls`.
+- **URL History** — JSON-масив рядків у Local Storage застосунку `myshare`, найсвіжіший URL індексом `0`; модуль `app/src/url-history.js`.
