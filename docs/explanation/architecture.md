@@ -55,6 +55,10 @@ C4Container
     - `app/` — frontend (Vue 3 + Quasar + Vite) і `app/src-tauri/` (Rust + Tauri 2 mobile).
     - `app/src/shared-url.js` — чистий витяг URL із тексту share intent.
     - `app/src/url-history.js` — load/save/append для історії URL у `localStorage` під ключем `myshare.sharedUrls`.
+    - `app/src/page-meta.js` — фетч `{title, favicon}` цільової сторінки через `@tauri-apps/plugin-http`; деталі — [components/page-meta](./components/page-meta.md).
+    - `app/src/youtube.js` — детекція YouTube URL, фетч caption tracks, вибір uk→en та XML→plain text для перегляду субтитрів; деталі — [components/youtube](./components/youtube.md).
+    - `app/src/platform.js` — UA-based детекція Android для умовного рендеру dev-helper'а; деталі — [components/platform](./components/platform.md).
+    - `app/src-tauri/gen/android/app/src/main/java/com/vitaliytv/myshare/MainActivity.kt` — Kotlin-перехоплювач `ACTION_SEND` intent із вкиданням URL у WebView через `evaluateJavascript` (localStorage + CustomEvent).
     - `scripts/` — допоміжні node-скрипти, зокрема `docs-regen`.
     - `docs/` — джерело істини архітектурної документації `myshare` (arc42 + ADR + проекції).
 
@@ -64,10 +68,12 @@ C4Container
 
 1. Користувач у будь-якому Android-застосунку натискає **Share** для посилання.
 2. Користувач обирає `myshare` у системному Android share sheet.
-3. Native Shell `myshare` отримує `text/plain` intent із URL.
-4. Native Shell передає URL у Frontend через Tauri event.
+3. Native Shell `myshare` (Kotlin `MainActivity`) отримує `ACTION_SEND` intent із URL.
+4. `MainActivity` вкидає URL у WebView через `evaluateJavascript`: пише у `localStorage['myshare.sharedText']` та диспатчить DOM-подію `myshare:android-share`.
 5. Frontend `myshare` витягає URL із тексту, додає його на початок історії й записує оновлений масив до Local Storage (`localStorage['myshare.sharedUrls']`).
-6. Frontend `myshare` відображає актуальну історію URL на екрані; на старті застосунку історія читається з Local Storage.
+6. Для нового URL Frontend `myshare` асинхронно фетчить **Page Metadata** (`{title, favicon}`); якщо URL — YouTube, додатково фетчить **Caption Tracks** і вибирає трек за пріоритетом `uk → en` (manual вище за auto).
+7. Frontend `myshare` відображає актуальну історію URL на екрані; на старті застосунку історія читається з Local Storage, після чого для кожного URL запускаються кроки п.6.
+8. Тап кнопки субтитрів на YouTube-картці завантажує **Timedtext XML** через `Caption Track.baseUrl` і показує транскрипт у діалозі.
 
 ## 7. Deployment View
 
@@ -78,6 +84,10 @@ C4Container
 Розділ заповнюватиметься в міру появи accepted ADR `myshare` за темами: безпека обробки URL, локалізація UI, логування, обробка помилок share intent.
 
 **Локальне сховище.** Frontend `myshare` зберігає історію прийнятих URL у Web `localStorage` під ключем `myshare.sharedUrls` — JSON-масив рядків, найсвіжіший URL першим. Це єдине місце персистентності `myshare` поза runtime; native-частина застосунку нічого окремо не персистить. Опис модуля — [components/url-history](./components/url-history.md).
+
+**Cross-origin HTTP.** WebView-CORS блокує fetch до зовнішніх сайтів із origin `http://localhost:1420` (dev) або `tauri://localhost` (prod). Frontend `myshare` для всіх зовнішніх запитів (`page-meta`, `youtube`) використовує `@tauri-apps/plugin-http`, який проксує fetch через Rust і CORS-policy WebView не торкається. Дозволені цілі — capability `http:default` із `http://**` + `https://**` у `app/src-tauri/capabilities/default.json`.
+
+**Платформа-залежний UI.** Share intent на Android — рідний механізм OS; на desktop його немає. Модуль [components/platform](./components/platform.md) дає Frontend `myshare` поточну ознаку «це Android», за якою у `App.vue` ховається dev-only helper для ручного введення URL на маку. Це гарантує, що production-Android-білд не має лишнього UI, а desktop-розробка не вимагає симулювати share intent через DevTools.
 
 <!-- AUTOGEN:start id="crosscutting-decisions" hash="sha256:pending" sources="" -->
 Регенерується з accepted ADR `myshare` за тематикою crosscutting (поки порожньо).

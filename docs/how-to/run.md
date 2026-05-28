@@ -23,6 +23,8 @@ bun run start
 
 Команда `bun run start` запускає `tauri dev` у воркспейсі `app/` — піднімає Vite dev-сервер для frontend `myshare` і Tauri desktop shell для native-частини застосунку.
 
+На desktop-режимі під заголовком картки `myshare` з'являється **Share Helper** — `<q-input>` для ручного введення URL. Він замінює відсутній Android Share sheet і викликає той самий код-шлях, що й справжній intent. Helper рендериться тільки коли модуль [`platform`](../explanation/components/platform.md) не виявив Android UA, тому в Android-білдах застосунку `myshare` його немає.
+
 ## Запустити dev-режим на підключеному Android-телефоні
 
 ```sh
@@ -36,3 +38,15 @@ bun run android
 ```sh
 bun run android -- --device <serial>
 ```
+
+## Встановити свіжий APK на телефон для офлайн-використання
+
+```sh
+bun run android:install
+```
+
+Команда `bun run android:install` збирає debug-APK застосунку `myshare` (`tauri android build --apk --debug`) і ставить його на підключений пристрій через `adb install -r`. Після інсталяції `myshare` працює офлайн — без Vite dev-сервера й кабелю; на телефоні з'являється звичайна іконка застосунку.
+
+Debug-APK підписаний debug-ключем Android SDK, тому окремого signing config для `myshare` не потрібно. Артефакт: `app/src-tauri/gen/android/app/build/outputs/apk/arm64/debug/app-arm64-debug.apk`.
+
+Якщо `adb install` повертає `INSTALL_FAILED_UPDATE_INCOMPATIBLE` — стара версія `myshare` була підписана іншим ключем; зніми її через `adb uninstall com.vitaliytv.myshare` і повтори команду.
