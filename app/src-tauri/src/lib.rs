@@ -2,10 +2,6 @@ mod youtube;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    // Завантажуємо app/src-tauri/.env (опціонально — на desktop dev). На Android
-    // env вантажиться інакше; .env лишається лише для dev-ергономіки.
-    let _ = dotenvy::dotenv();
-
     let builder = tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_http::init())
