@@ -3,7 +3,7 @@ import { extractSharedUrl } from './shared-url.js'
 import { appendUrlToHistory, loadUrlHistory, saveUrlHistory } from './url-history.js'
 import { fetchPageMeta } from './page-meta.js'
 import { isAndroidPlatform } from './platform.js'
-import { extractYoutubeVideoId, findYoutubeCaption, fetchCaptionText } from './youtube.js'
+import { extractYoutubeVideoId, getYoutubeTranscript } from './youtube.js'
 
 // На Android користувач отримує URL через справжній Share intent (MainActivity →
 // CustomEvent). На desktop dev share intent'у нема — показуємо input як helper,
@@ -14,11 +14,12 @@ const helperInput = ref('')
 const urlHistory = ref([])
 // reactive map url → { title, favicon, loading, error }
 const metaByUrl = ref({})
-// reactive map url → { videoId, caption: {languageCode,name,baseUrl,isAuto}|null, loading, error }
-// caption=null означає, що ми перевірили — субтитрів uk/en нема. loading=true поки fetch'аємо.
+// reactive map url → { videoId } для YouTube URL. UI показує кнопку «Дивитись
+// субтитри» одразу для будь-якого YouTube URL — фактичний фетч транскрипту
+// відбувається тільки при тапі (через supadata.ai API, потребує API-ключа).
 const youtubeByUrl = ref({})
 
-// Пріоритет мов для субтитрів: спершу українська (manual > auto), потім англійська.
+// Пріоритет мов для субтитрів: спершу українська, потім англійська.
 const PREFERRED_CAPTION_LANGS = ['uk', 'en']
 
 // Фетчить metadata для url якщо ще не починали; кешує у metaByUrl.
@@ -33,20 +34,13 @@ async function ensureMeta(url) {
   }
 }
 
-// Якщо URL це YouTube — фетчить caption tracks, вибирає uk→en, кешує.
-// Для не-YouTube URL нічого не робить (youtubeByUrl[url] лишається undefined,
-// UI просто не показує кнопку субтитрів).
-async function ensureYoutube(url) {
+// Помічає YouTube URL у `youtubeByUrl`, щоб UI показав кнопку. Сам транскрипт
+// не фетчимо до тапу (supadata API має квоту, не варто тратити на всі URL'и).
+function ensureYoutube(url) {
   if (youtubeByUrl.value[url]) return
   const videoId = extractYoutubeVideoId(url)
   if (!videoId) return
-  youtubeByUrl.value[url] = { videoId, caption: null, loading: true, error: '' }
-  try {
-    const caption = await findYoutubeCaption(videoId, PREFERRED_CAPTION_LANGS)
-    youtubeByUrl.value[url] = { videoId, caption, loading: false, error: '' }
-  } catch (e) {
-    youtubeByUrl.value[url] = { videoId, caption: null, loading: false, error: String(e?.message ?? e) }
-  }
+  youtubeByUrl.value[url] = { videoId }
 }
 
 function handleAndroidShare(event) {
@@ -78,27 +72,26 @@ const captionDialog = ref({
 
 async function openCaptionDialog(url) {
   const yt = youtubeByUrl.value[url]
-  if (!yt?.caption) return
+  if (!yt?.videoId) return
+  const baseTitle = metaByUrl.value[url]?.title || url
   captionDialog.value = {
     open: true,
-    title: buildCaptionDialogTitle(url, yt.caption),
+    title: `${baseTitle} — субтитри`,
     text: '',
     loading: true,
     error: ''
   }
   try {
-    const text = await fetchCaptionText(yt.caption)
-    captionDialog.value = { ...captionDialog.value, text, loading: false }
+    const { languageCode, text } = await getYoutubeTranscript(yt.videoId, PREFERRED_CAPTION_LANGS)
+    captionDialog.value = {
+      ...captionDialog.value,
+      title: `${baseTitle} — субтитри ${languageCode}`,
+      text,
+      loading: false
+    }
   } catch (e) {
     captionDialog.value = { ...captionDialog.value, loading: false, error: String(e?.message ?? e) }
   }
-}
-
-function buildCaptionDialogTitle(url, caption) {
-  const meta = metaByUrl.value[url]
-  const head = meta?.title || url
-  const langTag = caption.isAuto ? `${caption.languageCode} (auto)` : caption.languageCode
-  return `${head} — субтитри ${langTag}`
 }
 
 // --- Lifecycle ---------------------------------------------------------------
@@ -150,14 +143,11 @@ onUnmounted(() => {
           <q-card-section v-if="urlHistory.length">
             <div class="text-overline text-grey-7 q-mb-sm">Прийняті посилання</div>
             <q-list separator>
-              <q-item
-                v-for="(url, index) in urlHistory"
-                :key="`${index}:${url}`"
-                clickable
-                :href="url"
-                target="_blank"
-                rel="noreferrer"
-                tag="a">
+              <!-- q-item НЕ є лінком (немає :href + tag="a"), щоб кнопка субтитрів
+                   могла надійно обробляти клік. Лінк перенесений в окремий <a>
+                   всередині основної секції — клік по title/url відкриває URL у
+                   браузері, клік по кнопці субтитрів — модалку. -->
+              <q-item v-for="(url, index) in urlHistory" :key="`${index}:${url}`">
                 <q-item-section avatar>
                   <q-spinner
                     v-if="metaByUrl[url]?.loading"
@@ -178,29 +168,23 @@ onUnmounted(() => {
                   </q-avatar>
                 </q-item-section>
                 <q-item-section>
-                  <q-item-label lines="2">
-                    {{ metaByUrl[url]?.title || url }}
-                  </q-item-label>
-                  <q-item-label v-if="metaByUrl[url]?.title" caption class="shared-url">
-                    {{ url }}
-                  </q-item-label>
+                  <a :href="url" target="_blank" rel="noreferrer" class="url-link">
+                    <q-item-label lines="2">
+                      {{ metaByUrl[url]?.title || url }}
+                    </q-item-label>
+                    <q-item-label v-if="metaByUrl[url]?.title" caption class="shared-url">
+                      {{ url }}
+                    </q-item-label>
+                  </a>
                 </q-item-section>
                 <q-item-section v-if="youtubeByUrl[url]" side>
-                  <!-- click.prevent.stop — q-item сам по собі лінк, не даємо batsi -->
-                  <q-spinner v-if="youtubeByUrl[url].loading" color="primary" size="20px" />
                   <q-btn
-                    v-else-if="youtubeByUrl[url].caption"
                     flat
                     dense
                     color="primary"
                     icon="sym_o_subtitles"
-                    :label="
-                      youtubeByUrl[url].caption.isAuto
-                        ? `${youtubeByUrl[url].caption.languageCode} (auto)`
-                        : youtubeByUrl[url].caption.languageCode
-                    "
-                    @click.prevent.stop="openCaptionDialog(url)" />
-                  <q-icon v-else name="sym_o_subtitles_off" color="grey-6" :title="youtubeByUrl[url].error" />
+                    label="Cубтитри"
+                    @click="openCaptionDialog(url)" />
                 </q-item-section>
               </q-item>
             </q-list>
@@ -247,6 +231,17 @@ onUnmounted(() => {
 
 .shared-url {
   overflow-wrap: anywhere;
+}
+
+.url-link {
+  color: inherit;
+  text-decoration: none;
+  display: block;
+}
+
+.url-link:hover .text-primary,
+.url-link:hover {
+  text-decoration: underline;
 }
 
 .caption-dialog {

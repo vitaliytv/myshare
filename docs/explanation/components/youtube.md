@@ -1,46 +1,49 @@
-# Component: YouTube Captions
+# Component: YouTube Captions (supadata)
 
-Модуль `youtube` робить так, щоб для посилань на YouTube застосунок `myshare` показував кнопку перегляду субтитрів — спершу українських, у разі відсутності — англійських. Користувач застосунку `myshare` отримує текст відео як читабельний транскрипт, не виходячи з картки історії URL.
+Модуль `youtube` робить так, щоб для посилань на YouTube застосунок `myshare` показував кнопку «Субтитри», за тапом якої відкривається діалог із plain-text транскриптом — спершу українським, у разі відсутності — англійським. Користувач застосунку `myshare` отримує текст відео як читабельний транскрипт, не виходячи з картки історії URL.
+
+## Чому supadata, а не власний YouTube-парсер
+
+Спроби тримати subtitle-логіку всередині `myshare` (як власна, так і через `youtubei.js`) у 2025-2026 регулярно ламаються через **PO-Token** (Proof-of-Origin Token), запроваджений YouTube для блокування anonymous-fetch:
+
+- **Raw `fetch` до `/api/timedtext`** — `200 OK` з **0 байт** body, навіть зі signed URL.
+- **Innertube `POST /youtubei/v1/player`** з visitor-id, client-name, client-version — повертає response **без** `captionTracks` для anonymous-клієнтів.
+- **`youtubei.js` через `tauri-plugin-http`** — кожен запит ішов окремим `reqwest::Client` без shared cookie jar → consent-сторінка або `400/403`.
+- **`youtubei.js` через persistent Rust client із cookie jar** — `getInfo()` падав із `/next` 403; навіть `getBasicInfo` рідко повертав captions.
+
+Реалістичний рівень обходу PO-Token (BotGuard JS-VM emulation, `Authorization: Bearer SAPISID...`) вимагає окремої команди-сервісу, який тримати у `myshare` — overkill. Зовнішній сервіс **supadata.ai** робить цю роботу за нас: тримає актуальний обхід anti-bot і віддає plain-text транскрипт за простим REST + `x-api-key`.
+
+Free tier supadata дає 100 запитів на місяць — достатньо для одного користувача застосунку `myshare`, який ділиться кількома YouTube-посиланнями на день.
 
 ## Сценарій користувача
 
-1. Користувач ділиться YouTube-посиланням у Android Share sheet.
-2. `myshare` приймає URL у `handleAndroidShare` (через `myshare:android-share` подію з MainActivity або через dev helper-input на desktop).
-3. Frontend `myshare` визначає YouTube video ID і робить **фазу 1**: `findYoutubeCaption` через `youtubei.js` отримує список caption tracks і вибирає **manual uk → auto uk → manual en → auto en** за пріоритетом.
-4. На картці URL з'являється кнопка `sym_o_subtitles` з кодом мови; для AI-субтитрів додається мітка `(auto)`.
-5. Тап кнопки запускає **фазу 2**: `fetchCaptionText` завантажує plain-text транскрипт і відкриває діалог.
-
-## Чому `youtubei.js`, а не raw fetch
-
-З 2025 року YouTube ввів **PO-Token** (Proof-of-Origin Token) для більшості subtitle-endpoints. Сирий GET до `/api/timedtext?...` повертає `200 OK` із **0 байт** body — навіть зі signed URL із watch-сторінки. Без коректних visitor cookies, headers і session ID YouTube тиху відмовляє anonymous-клієнтам.
-
-`youtubei.js` (Innertube-клієнт) робить повну ініціалізацію Innertube session: завантажує `config`, `player_es6.vflset/base.js`, отримує visitor data — і додає це до кожного fetch'а через свій `yt.session.http.fetch`. Тільки в такій сесії baseUrl caption track повертає реальний body (~4–8 KB JSON для типового відео).
-
-Альтернативи, які НЕ використовуються:
-
-- Raw HTTP до `/api/timedtext?v=ID&lang=en` — 0 байт, як описано вище.
-- `https://www.youtube.com/youtubei/v1/get_transcript` напряму — `400 FAILED_PRECONDITION` без PO-Token, у будь-якому клієнті (WEB, IOS, ANDROID, TV).
-- 3rd-party transcript-сервіси (kome.ai, supadata.ai) — додають зовнішню залежність із власною квотою/біллінгом.
+1. Користувач ділиться YouTube-посиланням у Android Share sheet (або вставляє у dev helper-input на маку).
+2. Frontend `myshare` визначає YouTube video ID через JS `extractYoutubeVideoId` і відмічає URL у `youtubeByUrl` map — UI показує кнопку **«Субтитри»** поряд із посиланням.
+3. Тап кнопки запускає Tauri-команду `yt_get_transcript(video_id, ['uk', 'en'])` — Rust послідовно стукає supadata: спершу `lang=uk`, на `404` падає на `lang=en`.
+4. Перший успішний транскрипт відображається у діалозі з міткою фактичної мови (`uk`/`en`/`uk (auto)`).
 
 ??? engineer "Реалізація модуля `youtube` у `myshare`"
-    - Файл: `app/src/youtube.js`.
-    - Транспорт: `youtubei.js` (npm `youtubei.js@^17`) — Innertube-клієнт із browser-сумісним bundling через Vite.
-    - Прив'язка fetch: `Innertube.create({ fetch: bridgedFetch })` підставляє `tauri-plugin-http` fetch — Innertube ходить через Rust-проксі застосунку `myshare`, обходячи WebView CORS. Capability `http:default` у `app/src-tauri/capabilities/default.json` дозволяє `https://**`.
-    - Кешування: модуль тримає `innertubePromise` як singleton — `Innertube.create()` робить 3 початкових HTTP-запити (config, iframe_api, player base.js), які варто робити лише раз за сесію застосунку `myshare`.
-    - Помилку при `Innertube.create()` НЕ кешуємо: при наступному виклику дамо ще одну спробу (мережа могла відновитись).
-    - API:
-        - `extractYoutubeVideoId(url)` — чистий парсер: `youtube.com/watch`, `youtu.be/`, `shorts|embed|v|live/`, `m.youtube.com`, `youtube-nocookie.com`. Валідує ID як 11 символів `[A-Za-z0-9_-]`.
-        - `findYoutubeCaption(videoId, ['uk', 'en'])` — **фаза 1**: `Innertube.getInfo` + `pickPreferredCaption`. Повертає summary `{languageCode, name, isAuto, baseUrl}` або `null`. Швидко (1 запит до Innertube).
-        - `fetchCaptionText(track)` — **фаза 2**: завантажує `track.baseUrl` із `&fmt=json3` через `yt.session.http.fetch` (із cookies). Парсить через `parseCaptionJson3`; на не-JSON відповідь падає на `parseCaptionXml`.
-    - Пріоритет вибору track'а: `uk` → `en` за порядком preferred. У межах однієї мови — manual (без `kind: 'asr'`) перемагає auto-generated. `en-US` матчиться як `en` через strip subtag.
-    - Парсери `parseCaptionJson3` і `parseCaptionXml` — pure functions, тестуються без mocking. JSON3 формат YouTube: `{events: [{segs: [{utf8}]}]}` склеюємо через map+join, hard-break `\n` у utf8 → пробіл, події без segs пропускаємо.
+    - JS: `app/src/youtube.js` — тонкий wrapper. `extractYoutubeVideoId(url)` — чиста функція над URL (різноманіття форматів зручніше тримати у JS). `getYoutubeTranscript(videoId, preferred)` → `invoke('yt_get_transcript', {videoId, preferred})`.
+    - Rust: `app/src-tauri/src/youtube.rs`. Команда `yt_get_transcript`:
+        - Зчитує `SUPADATA_API_KEY` із env (підставляється з `app/src-tauri/.env` через `dotenvy::dotenv()` у `lib::run`). Якщо нема — `YoutubeError::MissingApiKey` із посиланням на signup.
+        - Для кожної мови з `preferred` робить `GET {base}/v1/youtube/transcript?videoId=...&lang=...&text=true` із заголовком `x-api-key`.
+        - Перший `200 OK` із непорожнім `content` повертається. `404` (мови нема) — `continue` до наступної. Інший HTTP-код — `Err(YoutubeError::Supadata)`.
+        - Якщо всі preferred мови віддали `404` — `YoutubeError::NoMatchingLang { tried, available }` із доступними мовами (для пропозиції користувачу).
+    - Helper `is_valid_video_id` — 11 символів base64url; перевіряє вхід перед HTTP, щоб не палити квоту на сміття.
+    - **Без cookies, без зв'язку між запитами** — supadata stateless, кожен запит ходить через свіжий `reqwest::Client::new()`.
 
-??? ops "Що моніторити для модуля `youtube` у `myshare`"
-    - YouTube періодично змінює структуру Innertube responses. `youtubei.js` команда тримає `npm update` ритм і випускає виправлення; знак того, що в нас застаріла версія — масові помилки `getInfo` із `null is not an object`. План: `bun add --cwd=app youtubei.js@latest` як один із кроків загального `n-taze`.
-    - Регіональний consent interstitial: для EU-IP без visitor cookies Innertube інколи отримує сторінку згоди. Поки `generate_session_locally: true` дає достатньо session metadata, щоб минути цей блок; якщо побачимо `getInfo` failure на конкретних відео — додамо явний consent-bypass.
-    - Дуже довгі субтитри (4-годинні стріми) можуть призвести до lag у `<pre>` рендеру. Поки не обмежуємо; при появі скарг — додати pagination або lazy-render.
-    - Bundle size: `youtubei.js` додав ~280 KB до `dist/assets/index.js` (gzip ~67 KB). Це прийнятна вартість за обхід PO-Token, але якщо колись з'явиться потреба у lazy-load — обернемо у `() => import('./youtube.js')` як dynamic import.
+??? ops "Setup і квоти"
+    - Реєстрація: https://supadata.ai/signup (free tier, без кредитки на старті).
+    - Конфігурація: `cp app/src-tauri/.env.example app/src-tauri/.env` і встав `SUPADATA_API_KEY=sk_...`. `.env` у `.gitignore` — не комітимо.
+    - Перевірка: `bun run start` → DevTools console: `await window.__TAURI__.core.invoke('yt_get_transcript', { videoId: 'dQw4w9WgXcQ', preferred: ['en'] })` має повернути `{ languageCode: 'en', text: '...', availableLangs: [...] }`.
+    - Моніторинг квоти: supadata dashboard показує лічильник запитів. Можна додати rate-limiting у UI (один транскрипт у 10 сек), якщо вийдемо за free tier.
+
+??? ops "Помилки, які покажуться у UI"
+    - **`supadata API key не налаштовано...`** — нема `.env` із ключем.
+    - **`supadata returned HTTP 429: ...`** — вичерпали квоту місяця. Або апгрейдимо план, або чекаємо новий цикл.
+    - **`жодна з мов ["uk", "en"] недоступна; доступні: [...]`** — відео взагалі без uk/en субтитрів. Список наявних мов підставлено — можна показати їх у UI як кнопки вибору.
 
 ## Тести
 
-- `app/src/youtube.test.js` — vitest, мок `youtubei.js` через `vi.mock('youtubei.js', ...)`. Покриває: усі варіанти YouTube URL, валідацію videoId, пріоритети `pickPreferredCaption` (uk→en + manual>auto + en-US-as-en), `parseCaptionJson3` (звичайний, padding-events, hard-break, edge cases), `parseCaptionXml` (legacy + v3 + порядок), `findYoutubeCaption` (happy/empty/невалідний ID/синглтон), `fetchCaptionText` (json3, XML fallback, без baseUrl, HTTP-помилка).
+- **Rust (6 тестів)**: `cargo test --lib`. `mockito::Server::new_async()` емулює supadata. Покриває happy-path (uk віддав текст), fallback (uk 404 → en 200), no-match (всі 404), unauthorized (401 пробрасується), invalid videoId, валідатор ID. API-key передається як параметр у `get_transcript_inner` — без global env mutation, тести deterministic у будь-якому порядку.
+- **JS (54 тестів, з них YouTube — частина)**: `bun --cwd=app run test`. `extractYoutubeVideoId` повністю покриває формати URL. Для `getYoutubeTranscript` мокаємо `@tauri-apps/api/core::invoke` — перевіряємо контракт виклику (правильна команда + аргументи) і пробрасу помилок як рядків від Rust.

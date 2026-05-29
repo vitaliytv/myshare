@@ -20,9 +20,22 @@ tauri-build = { version = "2", features = [] }
 [dependencies]
 tauri = { version = "2", features = [] }
 tauri-plugin-opener = "2"
-tauri-plugin-http = "2"
+# tauri-plugin-http лишився для page-meta (фронтенд робить favicon/title fetch).
+# unsafe-headers дозволяє Referer/Origin із JS.
+tauri-plugin-http = { version = "2", features = ["unsafe-headers"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+# YouTube captions: persistent client із cookie jar — без cookie persistence
+# YouTube блокує innertube/timedtext 403. cookies feature додає Set-Cookie парс.
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+tokio = { version = "1", features = ["macros", "rt"] }
+url = "2"
+thiserror = "2"
+dotenvy = "0.15"
 
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
 tauri-plugin-window-state = "2"
+
+[dev-dependencies]
+mockito = "1"
+tokio = { version = "1", features = ["macros", "rt", "rt-multi-thread"] }
