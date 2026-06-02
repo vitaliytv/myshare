@@ -5,11 +5,16 @@ import { fetchPageMeta } from './page-meta.js'
 import { isAndroidPlatform } from './platform.js'
 import { extractYoutubeVideoId, getYoutubeTranscript, getYoutubeLanguages } from './youtube.js'
 import { captionStatus, loadLangsCache, saveLangsCache } from './caption-langs.js'
+import { translateToUkrainian } from './ollama.js'
+import { loadTranslations, saveTranslations } from './translation-cache.js'
 
 // На Android користувач отримує URL через справжній Share intent (MainActivity →
 // CustomEvent). На desktop dev share intent'у нема — показуємо input як helper,
 // що віддає той самий event і прогоняє його handleAndroidShare.
 const showShareHelper = !isAndroidPlatform()
+// Переклад субтитрів через локальний Ollama доступний лише на desktop (Mac) —
+// на Android Ollama-сервера нема.
+const canTranslate = !isAndroidPlatform()
 const helperInput = ref('')
 
 const urlHistory = ref([])
@@ -27,6 +32,10 @@ const PREFERRED_CAPTION_LANGS = ['uk', 'en']
 // Кеш videoId → доступні мови (живе у localStorage, щоб не палити квоту
 // supadata на повторні запити того самого відео).
 const langsCache = ref({})
+
+// Кеш videoId → запис перекладу ({model, originalLang, segments}). Живе у
+// localStorage — переклад одного відео робимо лише раз.
+const translations = ref({})
 
 // Фетчить metadata для url якщо ще не починали; кешує у metaByUrl.
 async function ensureMeta(url) {
@@ -129,9 +138,54 @@ async function openCaptionDialog(url) {
   }
 }
 
+// --- Translation dialog ------------------------------------------------------
+const translateDialog = ref({
+  open: false,
+  title: '',
+  loading: false,
+  progress: null, // { done, total } під час перекладу
+  segments: [], // [{ original, translated }] для порівняння
+  error: ''
+})
+
+// Відкриває переклад субтитрів українською. Якщо вже перекладали це відео —
+// показуємо з кешу миттєво. Інакше тягнемо англійський транскрипт, женемо через
+// Ollama по чанках (з прогресом) і кешуємо результат.
+async function openTranslateDialog(url) {
+  const yt = youtubeByUrl.value[url]
+  if (!yt?.videoId) return
+  const videoId = yt.videoId
+  const baseTitle = metaByUrl.value[url]?.title || url
+  const title = `${baseTitle} — переклад 🇺🇦`
+
+  const cached = translations.value[videoId]
+  if (cached) {
+    translateDialog.value = { open: true, title, loading: false, progress: null, segments: cached.segments, error: '' }
+    return
+  }
+
+  translateDialog.value = { open: true, title, loading: true, progress: { done: 0, total: 0 }, segments: [], error: '' }
+  try {
+    // Оригінал — англійський транскрипт (uk тут за визначенням немає).
+    const { text } = await getYoutubeTranscript(videoId, ['en'])
+    const result = await translateToUkrainian(text, {
+      onProgress: (done, total) => {
+        translateDialog.value = { ...translateDialog.value, progress: { done, total } }
+      }
+    })
+    const entry = { model: result.model, originalLang: 'en', segments: result.segments }
+    translations.value = { ...translations.value, [videoId]: entry }
+    saveTranslations(window.localStorage, translations.value)
+    translateDialog.value = { ...translateDialog.value, loading: false, progress: null, segments: result.segments }
+  } catch (e) {
+    translateDialog.value = { ...translateDialog.value, loading: false, progress: null, error: String(e?.message ?? e) }
+  }
+}
+
 // --- Lifecycle ---------------------------------------------------------------
 onMounted(() => {
   langsCache.value = loadLangsCache(window.localStorage)
+  translations.value = loadTranslations(window.localStorage)
   urlHistory.value = loadUrlHistory(window.localStorage)
   for (const url of urlHistory.value) {
     ensureMeta(url)
@@ -269,6 +323,19 @@ onUnmounted(() => {
                     label="Cубтитри"
                     :disable="youtubeByUrl[url].status?.kind === 'none'"
                     @click="openCaptionDialog(url)" />
+                  <!-- Переклад EN→UA через локальний Ollama (тільки desktop,
+                       тільки коли українських нема, а англійські є). -->
+                  <q-btn
+                    v-if="canTranslate && youtubeByUrl[url].status?.kind === 'en'"
+                    flat
+                    dense
+                    color="deep-purple"
+                    icon="sym_o_translate"
+                    :label="translations[youtubeByUrl[url].videoId] ? 'Переклад' : 'Перекласти'"
+                    :title="translations[youtubeByUrl[url].videoId]
+                      ? 'Показати збережений переклад українською'
+                      : 'Перекласти англійські субтитри українською (Ollama)'"
+                    @click="openTranslateDialog(url)" />
                 </q-item-section>
               </q-item>
             </q-list>
@@ -299,6 +366,43 @@ onUnmounted(() => {
                 Не вдалося завантажити субтитри: {{ captionDialog.error }}
               </div>
               <pre v-else class="caption-text">{{ captionDialog.text }}</pre>
+            </q-card-section>
+          </q-card>
+        </q-dialog>
+
+        <!-- Модалка перекладу: оригінал (EN) поруч із перекладом (UA) -->
+        <q-dialog v-model="translateDialog.open" maximized>
+          <q-card class="column translate-dialog">
+            <q-card-section class="row items-center q-pb-none">
+              <div class="text-subtitle1 ellipsis">{{ translateDialog.title }}</div>
+              <q-space />
+              <q-btn icon="sym_o_close" flat round dense v-close-popup />
+            </q-card-section>
+
+            <q-card-section class="col scroll">
+              <div v-if="translateDialog.loading" class="column items-center q-py-xl">
+                <q-spinner color="deep-purple" size="40px" />
+                <div class="q-mt-md text-grey-7">
+                  Переклад через Ollama…
+                  <span v-if="translateDialog.progress?.total">
+                    {{ translateDialog.progress.done }}/{{ translateDialog.progress.total }} фрагментів
+                  </span>
+                </div>
+              </div>
+              <div v-else-if="translateDialog.error" class="text-negative">
+                Не вдалося перекласти: {{ translateDialog.error }}
+                <div class="text-grey-7 q-mt-sm">
+                  Переконайся, що Ollama запущено: <code>ollama serve</code>
+                </div>
+              </div>
+              <div v-else class="cmp-grid">
+                <div class="cmp-head">Оригінал (EN)</div>
+                <div class="cmp-head">Переклад (UA)</div>
+                <template v-for="(seg, i) in translateDialog.segments" :key="i">
+                  <pre class="cmp-cell">{{ seg.original }}</pre>
+                  <pre class="cmp-cell">{{ seg.translated }}</pre>
+                </template>
+              </div>
             </q-card-section>
           </q-card>
         </q-dialog>
@@ -348,5 +452,49 @@ onUnmounted(() => {
   max-height: 70vh;
   overflow-y: auto;
   margin: 0;
+}
+
+.translate-dialog {
+  width: 100%;
+  height: 100%;
+}
+
+.cmp-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  column-gap: 24px;
+  align-items: start;
+}
+
+.cmp-head {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  padding: 6px 0;
+  font-weight: 600;
+  background: var(--q-page, #fff);
+  border-bottom: 2px solid rgb(0 0 0 / 12%);
+}
+
+.cmp-cell {
+  margin: 0;
+  padding: 10px 0;
+  font-family: inherit;
+  font-size: 0.92rem;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+  border-bottom: 1px solid rgb(0 0 0 / 6%);
+}
+
+@media (max-width: 600px) {
+  .cmp-grid {
+    grid-template-columns: 1fr;
+    row-gap: 4px;
+  }
+
+  .cmp-head:nth-child(2) {
+    display: none;
+  }
 }
 </style>
