@@ -119,6 +119,13 @@ describe('listOllamaModels / resolveModel', () => {
 })
 
 describe('translateToUkrainian', () => {
+  test('запити несуть keep_alive 5m', async () => {
+    fetchMock.mockResolvedValueOnce(chatOk('переклад'))
+    await translateToUkrainian('hello', { model: 'm', base: 'http://x' })
+    const chatCall = fetchMock.mock.calls.find((c) => c[0] === 'http://x/api/chat')
+    expect(JSON.parse(chatCall[1].body).keep_alive).toBe('5m')
+  })
+
   test('розбиває, перекладає кожен чанк, звітує прогрес', async () => {
     // model заданий → /api/tags не викликається
     fetchMock.mockResolvedValueOnce(chatOk('перший')).mockResolvedValueOnce(chatOk('другий'))

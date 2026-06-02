@@ -10,9 +10,11 @@
 import { fetch } from '@tauri-apps/plugin-http'
 
 export const OLLAMA_BASE = 'http://localhost:11434'
-// Модель за замовчуванням. Якщо її нема серед завантажених — `resolveModel`
-// візьме першу наявну. Змінити дефолт = правка цієї константи.
-export const DEFAULT_MODEL = 'gemma4:e4b'
+// Модель за замовчуванням. gemma3:4b (~3.3 GB) — легка, влазить у RAM без свопу
+// разом із dev-оточенням; для перекладу субтитрів якості вистачає. Якщо її нема
+// серед завантажених — `resolveModel` візьме першу наявну. Змінити дефолт =
+// правка цієї константи.
+export const DEFAULT_MODEL = 'gemma3:4b'
 
 // Ріже текст на чанки не довші за maxChars, по межах абзаців (порожній рядок),
 // потім рядків; задовгий рядок — жорстко по символах. Чиста функція.
@@ -121,7 +123,13 @@ export async function translateChunk(chunk, { model = DEFAULT_MODEL, base = OLLA
     body: JSON.stringify({
       model,
       stream: false,
-      options: { temperature: 0.2 },
+      // keep_alive: модель лишається завантаженою 5 хв після запиту, щоб
+      // переклад наступних чанків і повторні переклади не перевантажували її
+      // щоразу (з легкою gemma3:4b своп це не тисне).
+      keep_alive: '5m',
+      // num_ctx обмежує KV-кеш: чанк (≤3500 симв. ≈ ~1200 токенів) + переклад
+      // влазять у 8192 із запасом, без роздування памʼяті під дефолтний контекст.
+      options: { temperature: 0.2, num_ctx: 8192 },
       messages: buildMessages(chunk)
     })
   })
