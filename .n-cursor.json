@@ -5,10 +5,12 @@
     "bun",
     "changelog",
     "ci4",
+    "flow",
     "ga",
     "image-avif",
     "image-compress",
     "js-lint",
+    "js-lint-ci",
     "js-run",
     "rust",
     "security",
@@ -27,6 +29,7 @@
     "llm-patch",
     "publish-telegram",
     "start-check",
-    "taze"
+    "taze",
+    "worktree"
   ]
 }

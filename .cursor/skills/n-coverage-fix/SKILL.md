@@ -4,6 +4,27 @@ description: >-
   Автономна команда: запускає n-cursor coverage → читає вцілілих мутантів → ітеративно пише тести до конвергенції (max 3 ітерації)
 ---
 
+<!-- n-cursor:worktree:start -->
+> [!IMPORTANT]
+> **Worktree-only skill.** Виконується **виключно** в окремому git-worktree (`.worktrees/<current-branch>-coverage-f/`) і **не** паралелиться — один інстанс за раз.
+
+**Крок 0 — preflight (обовʼязковий, перед будь-якими іншими діями).** Якщо перевірка падає — **STOP**: не питай користувача про назву гілки, а сам створи worktree від поточної гілки за конвенцією `<current-branch>-coverage-f`. Суфікс `coverage-f` — коротка (до 10 символів) транслітерація задачі. Не виконуй **жоден** наступний крок скіла, поки preflight не завершився успіхом.
+
+```bash
+git rev-parse --show-toplevel
+git branch --show-current
+```
+
+Якщо перша команда показала, що ти **не** в `.worktrees/`, візьми вивід другої команди як `<current-branch>` і виконай **literal-команди без shell expansion** (без command substitution, variable expansion чи backticks). Наприклад, якщо поточна гілка `feature/x`:
+
+```bash
+npx @nitra/cursor worktree add "feature/x-coverage-f" "n-coverage-f: worktree-only skill"
+cd ".worktrees/feature-x-coverage-f"
+```
+
+Тобто branch-argument лишає slash як у git-гілці, а шлях для `cd` бере sanitized форму: slash → `-`.
+<!-- n-cursor:worktree:end -->
+
 # n-coverage-fix — підвищення mutation score
 
 ## Мета

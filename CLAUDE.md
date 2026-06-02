@@ -4,9 +4,11 @@
 @.cursor/rules/n-bun.mdc
 @.cursor/rules/n-changelog.mdc
 @.cursor/rules/n-ci4.mdc
+@.cursor/rules/n-flow.mdc
 @.cursor/rules/n-ga.mdc
 @.cursor/rules/n-image-avif.mdc
 @.cursor/rules/n-image-compress.mdc
+@.cursor/rules/n-js-lint-ci.mdc
 @.cursor/rules/n-js-lint.mdc
 @.cursor/rules/n-js-run.mdc
 @.cursor/rules/n-rust.mdc
@@ -21,6 +23,10 @@
 ## Лінт і ESLint (без паралельних запусків)
 
 Щоб не запускати **кілька** одночасних **`eslint`** (і не перевантажувати диск/CPU), **заборонено** стартувати `bun run lint` / `lint-js` / `eslint` **паралельно** в різних Bash-задачах, **фонових** shells чи **субагентах** (Task тощо). Має бути **один** послідовний прогон на сесію; команда **`/n-lint`** — **не** ділити на паралельні підзадачі. Деталі: `.cursor/skills/n-lint/SKILL.md`.
+
+## Worktree-only skills (`meta.json` → `worktree: true`)
+
+Скіл із **`worktree: true`** у `meta.json` запускається **виключно** в окремому git-worktree (`.worktrees/<current-branch>-<suffix>/`) — **не** в основному дереві й **не** паралельно. Перший крок такого скіла (блок `n-cursor:worktree:start` у його `SKILL.md`) — **preflight**: якщо `git rev-parse --show-toplevel` не вказує під `.worktrees/`, **STOP** і не питай користувача про назву гілки; створи worktree від поточної гілки готовим snippet з `SKILL.md` за конвенцією `<current-branch>-<suffix>` і без shell expansion (без command substitution, variable expansion чи backticks). Чисте робоче дерево — **не** привід пропустити preflight.
 
 ## Skills
 
@@ -44,3 +50,5 @@
   Команда: `/n-start-check`
 - `.cursor/skills/n-taze/SKILL.md` — Оновлення версій модулів проекту з аналізом major-змін і автоматичним рефакторингом несумісного коду
   Команда: `/n-taze`
+- `.cursor/skills/n-worktree/SKILL.md` — Створення та керування git-worktree через n-cursor worktree CLI: ізольований workspace у .worktrees/<branch>/ з інвентарним файлом-описом
+  Команда: `/n-worktree`

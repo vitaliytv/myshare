@@ -54,3 +54,6 @@ dist/
 # Stryker mutation testing (test.mdc)
 reports/stryker/incremental.json
 **/reports/stryker/
+
+# @nitra/cursor — локальні git-worktree, не коміти
+.worktrees/
