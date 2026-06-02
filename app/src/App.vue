@@ -3,7 +3,8 @@ import { extractSharedUrl } from './shared-url.js'
 import { appendUrlToHistory, loadUrlHistory, saveUrlHistory } from './url-history.js'
 import { fetchPageMeta } from './page-meta.js'
 import { isAndroidPlatform } from './platform.js'
-import { extractYoutubeVideoId, getYoutubeTranscript } from './youtube.js'
+import { extractYoutubeVideoId, getYoutubeTranscript, getYoutubeLanguages } from './youtube.js'
+import { captionStatus, loadLangsCache, saveLangsCache } from './caption-langs.js'
 
 // На Android користувач отримує URL через справжній Share intent (MainActivity →
 // CustomEvent). На desktop dev share intent'у нема — показуємо input як helper,
@@ -14,13 +15,18 @@ const helperInput = ref('')
 const urlHistory = ref([])
 // reactive map url → { title, favicon, loading, error }
 const metaByUrl = ref({})
-// reactive map url → { videoId } для YouTube URL. UI показує кнопку «Дивитись
-// субтитри» одразу для будь-якого YouTube URL — фактичний фетч транскрипту
-// відбувається тільки при тапі (через supadata.ai API, потребує API-ключа).
+// reactive map url → { videoId, langsLoading, langsError, status } для YouTube
+// URL. Одразу після появи лінку підтягуємо список мов субтитрів (один запит до
+// supadata, кешований у localStorage за videoId) і показуємо статус: чи є
+// українські, чи англійські. Сам транскрипт фетчимо лише при тапі.
 const youtubeByUrl = ref({})
 
 // Пріоритет мов для субтитрів: спершу українська, потім англійська.
 const PREFERRED_CAPTION_LANGS = ['uk', 'en']
+
+// Кеш videoId → доступні мови (живе у localStorage, щоб не палити квоту
+// supadata на повторні запити того самого відео).
+const langsCache = ref({})
 
 // Фетчить metadata для url якщо ще не починали; кешує у metaByUrl.
 async function ensureMeta(url) {
@@ -34,13 +40,42 @@ async function ensureMeta(url) {
   }
 }
 
-// Помічає YouTube URL у `youtubeByUrl`, щоб UI показав кнопку. Сам транскрипт
-// не фетчимо до тапу (supadata API має квоту, не варто тратити на всі URL'и).
+// Помічає YouTube URL у `youtubeByUrl`, щоб UI показав кнопку, і підтягує
+// статус наявності субтитрів (uk → en). Сам транскрипт не фетчимо до тапу.
 function ensureYoutube(url) {
   if (youtubeByUrl.value[url]) return
   const videoId = extractYoutubeVideoId(url)
   if (!videoId) return
-  youtubeByUrl.value[url] = { videoId }
+  youtubeByUrl.value[url] = { videoId, langsLoading: false, langsError: '', status: null }
+  ensureCaptionLangs(url, videoId)
+}
+
+// Визначає доступні мови субтитрів для videoId і записує статус у
+// `youtubeByUrl[url]`. Бере з localStorage-кешу, якщо вже питали це відео;
+// інакше робить один запит до supadata й кешує результат.
+async function ensureCaptionLangs(url, videoId) {
+  const cached = langsCache.value[videoId]
+  if (cached) {
+    youtubeByUrl.value[url] = { ...youtubeByUrl.value[url], status: captionStatus(cached) }
+    return
+  }
+  youtubeByUrl.value[url] = { ...youtubeByUrl.value[url], langsLoading: true, langsError: '' }
+  try {
+    const langs = await getYoutubeLanguages(videoId)
+    langsCache.value = { ...langsCache.value, [videoId]: langs }
+    saveLangsCache(window.localStorage, langsCache.value)
+    youtubeByUrl.value[url] = {
+      ...youtubeByUrl.value[url],
+      langsLoading: false,
+      status: captionStatus(langs)
+    }
+  } catch (e) {
+    youtubeByUrl.value[url] = {
+      ...youtubeByUrl.value[url],
+      langsLoading: false,
+      langsError: String(e?.message ?? e)
+    }
+  }
 }
 
 function handleAndroidShare(event) {
@@ -96,6 +131,7 @@ async function openCaptionDialog(url) {
 
 // --- Lifecycle ---------------------------------------------------------------
 onMounted(() => {
+  langsCache.value = loadLangsCache(window.localStorage)
   urlHistory.value = loadUrlHistory(window.localStorage)
   for (const url of urlHistory.value) {
     ensureMeta(url)
@@ -177,13 +213,61 @@ onUnmounted(() => {
                     </q-item-label>
                   </a>
                 </q-item-section>
-                <q-item-section v-if="youtubeByUrl[url]" side>
+                <q-item-section v-if="youtubeByUrl[url]" side class="yt-side">
+                  <!-- Статус наявності субтитрів: uk → en → нема. -->
+                  <q-spinner
+                    v-if="youtubeByUrl[url].langsLoading"
+                    color="primary"
+                    size="20px" />
+                  <q-chip
+                    v-else-if="youtubeByUrl[url].status?.kind === 'uk'"
+                    dense
+                    square
+                    color="green-2"
+                    text-color="green-9"
+                    icon="sym_o_subtitles"
+                    title="Доступні українські субтитри">
+                    🇺🇦 UA
+                  </q-chip>
+                  <q-chip
+                    v-else-if="youtubeByUrl[url].status?.kind === 'en'"
+                    dense
+                    square
+                    color="blue-2"
+                    text-color="blue-9"
+                    icon="sym_o_subtitles"
+                    title="Українських нема — доступні англійські">
+                    🇬🇧 EN
+                  </q-chip>
+                  <q-chip
+                    v-else-if="youtubeByUrl[url].status?.kind === 'none'"
+                    dense
+                    square
+                    color="grey-3"
+                    text-color="grey-8"
+                    icon="sym_o_subtitles_off"
+                    :title="youtubeByUrl[url].status.langs.length
+                      ? `Нема UA/EN. Доступні: ${youtubeByUrl[url].status.langs.join(', ')}`
+                      : 'Субтитрів немає'">
+                    Без UA·EN
+                  </q-chip>
+                  <q-chip
+                    v-else-if="youtubeByUrl[url].langsError"
+                    dense
+                    square
+                    color="orange-2"
+                    text-color="orange-9"
+                    icon="sym_o_error"
+                    :title="youtubeByUrl[url].langsError">
+                    ?
+                  </q-chip>
                   <q-btn
                     flat
                     dense
                     color="primary"
                     icon="sym_o_subtitles"
                     label="Cубтитри"
+                    :disable="youtubeByUrl[url].status?.kind === 'none'"
                     @click="openCaptionDialog(url)" />
                 </q-item-section>
               </q-item>
@@ -242,6 +326,12 @@ onUnmounted(() => {
 .url-link:hover .text-primary,
 .url-link:hover {
   text-decoration: underline;
+}
+
+.yt-side {
+  flex-direction: row;
+  align-items: center;
+  gap: 4px;
 }
 
 .caption-dialog {

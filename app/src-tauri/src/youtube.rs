@@ -78,6 +78,56 @@ pub async fn yt_get_transcript(
     Ok(get_transcript_inner(&video_id, &preferred, SUPADATA_BASE, SUPADATA_API_KEY).await?)
 }
 
+/// Tauri command: повертає список мов субтитрів, доступних для відео, не
+/// тягнучи весь транскрипт. UI використовує його, щоб одразу показати по
+/// кожному YouTube-лінку, чи є українські/англійські субтитри.
+#[tauri::command]
+pub async fn yt_list_languages(video_id: String) -> Result<Vec<String>, String> {
+    Ok(list_langs_inner(&video_id, SUPADATA_BASE, SUPADATA_API_KEY).await?)
+}
+
+/// Один запит до supadata по дефолтному транскрипту (`lang` не задаємо) —
+/// нас цікавить лише поле `availableLangs` з відповіді. Текст відкидаємо.
+/// Відео без жодних субтитрів → порожній `Vec` (а не помилка).
+async fn list_langs_inner(
+    video_id: &str,
+    base: &str,
+    api_key: &str,
+) -> Result<Vec<String>, YoutubeError> {
+    if !is_valid_video_id(video_id) {
+        return Err(YoutubeError::InvalidVideoId(video_id.to_string()));
+    }
+    let client = reqwest::Client::new();
+    let url = format!("{base}/v1/youtube/transcript?videoId={video_id}&text=true");
+    let resp = client.get(&url).header("x-api-key", api_key).send().await?;
+    let status = resp.status();
+    let body = resp.text().await?;
+
+    // supadata віддає `availableLangs` і в success-, і в error-відповідях —
+    // якщо список є, віддаємо його незалежно від HTTP-коду.
+    if let Ok(parsed) = serde_json::from_str::<SupadataResponse>(&body) {
+        if !parsed.available_langs.is_empty() {
+            return Ok(parsed.available_langs);
+        }
+        if status.is_success() {
+            // success без явного списку: повертаємо фактичну мову, якщо є.
+            return Ok(parsed.lang.map(|l| vec![l]).unwrap_or_default());
+        }
+    }
+    // 404 «немає транскрипту» — для нас не помилка, а «субтитрів нема».
+    if status.as_u16() == 404 {
+        return Ok(Vec::new());
+    }
+    if status.is_success() {
+        return Ok(Vec::new());
+    }
+    let message = serde_json::from_str::<SupadataError>(&body)
+        .ok()
+        .and_then(|e| e.message.or(e.error))
+        .unwrap_or_else(|| body.chars().take(200).collect());
+    Err(YoutubeError::Supadata { status: status.as_u16(), message })
+}
+
 async fn get_transcript_inner(
     video_id: &str,
     preferred: &[String],
@@ -257,6 +307,65 @@ mod tests {
             }
             other => panic!("unexpected: {other:?}"),
         }
+    }
+
+    #[tokio::test]
+    async fn list_langs_returns_available() {
+        let mut server = mockito::Server::new_async().await;
+        let _m = server
+            .mock("GET", "/v1/youtube/transcript")
+            .match_query(mockito::Matcher::UrlEncoded("videoId".into(), "dQw4w9WgXcQ".into()))
+            .with_status(200)
+            .with_body(r#"{"content":"hi","lang":"en","availableLangs":["uk","en","de"]}"#)
+            .create_async()
+            .await;
+
+        let langs = list_langs_inner("dQw4w9WgXcQ", &server.url(), TEST_KEY)
+            .await
+            .unwrap();
+        assert_eq!(langs, vec!["uk", "en", "de"]);
+    }
+
+    #[tokio::test]
+    async fn list_langs_empty_when_no_transcript() {
+        let mut server = mockito::Server::new_async().await;
+        let _m = server
+            .mock("GET", "/v1/youtube/transcript")
+            .match_query(mockito::Matcher::Any)
+            .with_status(404)
+            .with_body(r#"{"error":"transcript-unavailable"}"#)
+            .create_async()
+            .await;
+
+        let langs = list_langs_inner("dQw4w9WgXcQ", &server.url(), TEST_KEY)
+            .await
+            .unwrap();
+        assert!(langs.is_empty());
+    }
+
+    #[tokio::test]
+    async fn list_langs_propagates_unauthorized() {
+        let mut server = mockito::Server::new_async().await;
+        let _m = server
+            .mock("GET", "/v1/youtube/transcript")
+            .match_query(mockito::Matcher::Any)
+            .with_status(401)
+            .with_body(r#"{"message":"Missing API Key"}"#)
+            .create_async()
+            .await;
+
+        let err = list_langs_inner("dQw4w9WgXcQ", &server.url(), TEST_KEY)
+            .await
+            .unwrap_err();
+        assert!(matches!(err, YoutubeError::Supadata { status: 401, .. }));
+    }
+
+    #[tokio::test]
+    async fn list_langs_rejects_invalid_id() {
+        let err = list_langs_inner("bad", "https://example.com", TEST_KEY)
+            .await
+            .unwrap_err();
+        assert!(matches!(err, YoutubeError::InvalidVideoId(_)));
     }
 
     #[test]

@@ -3,7 +3,7 @@ import { describe, expect, test, vi, beforeEach } from 'vitest'
 const invokeMock = vi.fn()
 vi.mock('@tauri-apps/api/core', () => ({ invoke: (...args) => invokeMock(...args) }))
 
-const { extractYoutubeVideoId, getYoutubeTranscript } = await import('./youtube.js')
+const { extractYoutubeVideoId, getYoutubeTranscript, getYoutubeLanguages } = await import('./youtube.js')
 
 beforeEach(() => {
   invokeMock.mockReset()
@@ -83,5 +83,19 @@ describe('getYoutubeTranscript', () => {
   test('пробрасує помилку Rust (рядок)', async () => {
     invokeMock.mockRejectedValueOnce('supadata API key не налаштовано...')
     await expect(getYoutubeTranscript('dQw4w9WgXcQ', ['uk'])).rejects.toMatch(/supadata/)
+  })
+})
+
+describe('getYoutubeLanguages', () => {
+  test('викликає yt_list_languages із videoId', async () => {
+    invokeMock.mockResolvedValueOnce(['uk', 'en', 'de'])
+    const result = await getYoutubeLanguages('dQw4w9WgXcQ')
+    expect(invokeMock).toHaveBeenCalledWith('yt_list_languages', { videoId: 'dQw4w9WgXcQ' })
+    expect(result).toEqual(['uk', 'en', 'de'])
+  })
+
+  test('throws на некоректний videoId без виклику invoke', async () => {
+    await expect(getYoutubeLanguages('bad-id')).rejects.toThrow('invalid YouTube video id')
+    expect(invokeMock).not.toHaveBeenCalled()
   })
 })

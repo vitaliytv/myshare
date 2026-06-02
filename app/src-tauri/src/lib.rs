@@ -5,7 +5,10 @@ pub fn run() {
     let builder = tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_http::init())
-        .invoke_handler(tauri::generate_handler![youtube::yt_get_transcript]);
+        .invoke_handler(tauri::generate_handler![
+            youtube::yt_get_transcript,
+            youtube::yt_list_languages
+        ]);
 
     #[cfg(desktop)]
     let builder = builder.plugin(tauri_plugin_window_state::Builder::default().build());

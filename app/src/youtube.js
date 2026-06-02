@@ -53,3 +53,17 @@ export async function getYoutubeTranscript(videoId, preferred = ['uk', 'en']) {
   }
   return invoke('yt_get_transcript', { videoId, preferred })
 }
+
+// Запитує список мов субтитрів, доступних для відео (Rust-команда
+// `yt_list_languages`, один виклик supadata без витягування всього тексту).
+// Дозволяє показати по кожному лінку статус наявності субтитрів. Порожній
+// масив = у відео взагалі немає субтитрів.
+//
+// @param {string} videoId
+// @returns {Promise<string[]>} напр. ['uk', 'en', 'de']
+export async function getYoutubeLanguages(videoId) {
+  if (!validateVideoId(videoId)) {
+    throw new Error('invalid YouTube video id')
+  }
+  return invoke('yt_list_languages', { videoId })
+}
