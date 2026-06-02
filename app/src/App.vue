@@ -239,10 +239,7 @@ onUnmounted(() => {
                    браузері, клік по кнопці субтитрів — модалку. -->
               <q-item v-for="(url, index) in urlHistory" :key="`${index}:${url}`">
                 <q-item-section avatar>
-                  <q-spinner
-                    v-if="metaByUrl[url]?.loading"
-                    color="primary"
-                    size="32px" />
+                  <q-spinner v-if="metaByUrl[url]?.loading" color="primary" size="32px" />
                   <q-avatar v-else size="32px" rounded>
                     <q-img
                       v-if="metaByUrl[url]?.favicon"

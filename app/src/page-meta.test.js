@@ -93,10 +93,9 @@ describe('extractFaviconUrl', () => {
 describe('fetchPageMeta', () => {
   test('повертає {title, favicon} для нормальної сторінки', async () => {
     fetchMock.mockResolvedValueOnce(
-      htmlResponse(
-        '<html><head><title>Example Site</title><link rel="icon" href="/fav.ico"></head></html>',
-        { url: 'https://example.com/' }
-      )
+      htmlResponse('<html><head><title>Example Site</title><link rel="icon" href="/fav.ico"></head></html>', {
+        url: 'https://example.com/'
+      })
     )
     const meta = await fetchPageMeta('https://example.com/')
     expect(meta).toEqual({

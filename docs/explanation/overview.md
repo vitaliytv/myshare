@@ -5,7 +5,9 @@
 Мінімальний результат першої версії `myshare` — коректно прийняти `text/plain` share intent з URL і відобразити цей URL у UI.
 
 <!-- AUTOGEN:start id="capability-map" hash="sha256:pending" sources="" -->
+
 ## Capability Map
 
 Розділ генерується з accepted ADR за тематикою верхньорівневих product-capabilities `myshare`. Поки немає accepted ADR — мапа порожня.
+
 <!-- AUTOGEN:end id="capability-map" -->

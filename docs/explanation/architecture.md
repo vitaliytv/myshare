@@ -51,16 +51,7 @@ C4Container
   Rel(frontend, user, "Показує список URL")
 ```
 
-??? engineer "Розташування коду застосунку `myshare` у репозиторії"
-    - `app/` — frontend (Vue 3 + Quasar + Vite) і `app/src-tauri/` (Rust + Tauri 2 mobile).
-    - `app/src/shared-url.js` — чистий витяг URL із тексту share intent.
-    - `app/src/url-history.js` — load/save/append для історії URL у `localStorage` під ключем `myshare.sharedUrls`.
-    - `app/src/page-meta.js` — фетч `{title, favicon}` цільової сторінки через `@tauri-apps/plugin-http`; деталі — [components/page-meta](./components/page-meta.md).
-    - `app/src/youtube.js` — детекція YouTube URL, фетч caption tracks, вибір uk→en та XML→plain text для перегляду субтитрів; деталі — [components/youtube](./components/youtube.md).
-    - `app/src/platform.js` — UA-based детекція Android для умовного рендеру dev-helper'а; деталі — [components/platform](./components/platform.md).
-    - `app/src-tauri/gen/android/app/src/main/java/com/vitaliytv/myshare/MainActivity.kt` — Kotlin-перехоплювач `ACTION_SEND` intent із вкиданням URL у WebView через `evaluateJavascript` (localStorage + CustomEvent).
-    - `scripts/` — допоміжні node-скрипти, зокрема `docs-regen`.
-    - `docs/` — джерело істини архітектурної документації `myshare` (arc42 + ADR + проекції).
+??? engineer "Розташування коду застосунку `myshare` у репозиторії" - `app/` — frontend (Vue 3 + Quasar + Vite) і `app/src-tauri/` (Rust + Tauri 2 mobile). - `app/src/shared-url.js` — чистий витяг URL із тексту share intent. - `app/src/url-history.js` — load/save/append для історії URL у `localStorage` під ключем `myshare.sharedUrls`. - `app/src/page-meta.js` — фетч `{title, favicon}` цільової сторінки через `@tauri-apps/plugin-http`; деталі — [components/page-meta](./components/page-meta.md). - `app/src/youtube.js` — детекція YouTube URL, фетч caption tracks, вибір uk→en та XML→plain text для перегляду субтитрів; деталі — [components/youtube](./components/youtube.md). - `app/src/platform.js` — UA-based детекція Android для умовного рендеру dev-helper'а; деталі — [components/platform](./components/platform.md). - `app/src-tauri/gen/android/app/src/main/java/com/vitaliytv/myshare/MainActivity.kt` — Kotlin-перехоплювач `ACTION_SEND` intent із вкиданням URL у WebView через `evaluateJavascript` (localStorage + CustomEvent). - `scripts/` — допоміжні node-скрипти, зокрема `docs-regen`. - `docs/` — джерело істини архітектурної документації `myshare` (arc42 + ADR + проекції).
 
 ## 6. Runtime View
 
@@ -92,7 +83,9 @@ C4Container
 **Платформа-залежний UI.** Share intent на Android — рідний механізм OS; на desktop його немає. Модуль [components/platform](./components/platform.md) дає Frontend `myshare` поточну ознаку «це Android», за якою у `App.vue` ховається dev-only helper для ручного введення URL на маку. Це гарантує, що production-Android-білд не має лишнього UI, а desktop-розробка не вимагає симулювати share intent через DevTools.
 
 <!-- AUTOGEN:start id="crosscutting-decisions" hash="sha256:pending" sources="" -->
+
 Регенерується з accepted ADR `myshare` за тематикою crosscutting (поки порожньо).
+
 <!-- AUTOGEN:end id="crosscutting-decisions" -->
 
 ## 9. Architecture Decisions

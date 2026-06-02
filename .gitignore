@@ -57,3 +57,6 @@ reports/stryker/incremental.json
 
 # @nitra/cursor — локальні git-worktree, не коміти
 .worktrees/
+
+# Test artifacts: Stryker + coverage (test.mdc)
+**/coverage/

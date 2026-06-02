@@ -4,7 +4,7 @@ import { appendUrlToHistory, loadUrlHistory, saveUrlHistory, STORAGE_KEY } from 
 function createStorage(initial = {}) {
   const store = { ...initial }
   return {
-    getItem: (key) => (key in store ? store[key] : null),
+    getItem: key => (key in store ? store[key] : null),
     setItem: (key, value) => {
       store[key] = String(value)
     }

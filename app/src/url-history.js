@@ -15,7 +15,7 @@ export function loadUrlHistory(storage) {
 
   if (!Array.isArray(parsed)) return []
 
-  return parsed.filter((url) => typeof url === 'string' && url.length > 0)
+  return parsed.filter(url => typeof url === 'string' && url.length > 0)
 }
 
 export function saveUrlHistory(storage, history) {

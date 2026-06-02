@@ -9,8 +9,7 @@ describe('isAndroidUserAgent', () => {
   })
 
   test('macOS Tauri WKWebView UA', () => {
-    const ua =
-      'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0'
+    const ua = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0'
     expect(isAndroidUserAgent(ua)).toBe(false)
   })
 
