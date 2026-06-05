@@ -10,8 +10,7 @@
   "scripts": {
     "start": "bun --cwd=app run tauri dev",
     "android": "bun --cwd=app run tauri android dev",
-    "android:apk": "bun --cwd=app run tauri android build --apk --debug --target aarch64 && cp app/src-tauri/gen/android/app/build/outputs/apk/universal/debug/app-universal-debug.apk myshare.apk",
-    "android:install": "bun run android:apk && adb install -r myshare.apk",
+    "myshare-apk": "bun --cwd=app run tauri android build --apk --debug --target aarch64 && cp app/src-tauri/gen/android/app/build/outputs/apk/universal/debug/app-universal-debug.apk myshare.apk",
     "tauri": "bun --cwd=app run tauri",
     "lint": "bun run lint-js && bun run lint-text && bun run lint-style && bun run lint-ga && bun run lint-rust && bun run lint-image && bun run lint-security && oxfmt .",
     "lint-rust": "cargo fmt --all && cargo clippy --fix --allow-staged --allow-dirty --all-targets --all-features && cargo clippy --all-targets --all-features -- -D warnings",
