@@ -60,3 +60,6 @@ reports/stryker/incremental.json
 
 # Test artifacts: Stryker + coverage (test.mdc)
 **/coverage/
+
+# Android APK артефакт (bun run android:apk)
+myshare.apk

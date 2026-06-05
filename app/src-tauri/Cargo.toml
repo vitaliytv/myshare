@@ -38,3 +38,8 @@ tauri-plugin-window-state = "2"
 [dev-dependencies]
 mockito = "1"
 tokio = { version = "1", features = ["macros", "rt", "rt-multi-thread"] }
+
+# Стрипаємо debug-символи навіть у debug-збірці: для Android вони роздувають
+# .so з ~10 MB корисного коду до ~160 MB. Для локального APK символи не потрібні.
+[profile.dev]
+strip = true
