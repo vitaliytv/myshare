@@ -1,12 +1,13 @@
 <script setup>
-import { extractSharedUrl } from './shared-url.js'
+import { consumePendingSharedText, extractSharedUrl } from './shared-url.js'
 import { appendUrlToHistory, loadUrlHistory, saveUrlHistory } from './url-history.js'
 import { fetchPageMeta } from './page-meta.js'
 import { isAndroidPlatform } from './platform.js'
 import { extractYoutubeVideoId, getYoutubeTranscript, getYoutubeLanguages } from './youtube.js'
 import { captionStatus, loadLangsCache, saveLangsCache } from './caption-langs.js'
-import { translateToUkrainian } from './ollama.js'
+import { translateToUkrainian, listOllamaModels, DEFAULT_MODEL } from './ollama.js'
 import { loadTranslations, saveTranslations } from './translation-cache.js'
+import { loadModelPref, saveModelPref } from './model-pref.js'
 
 // На Android користувач отримує URL через справжній Share intent (MainActivity →
 // CustomEvent). На desktop dev share intent'у нема — показуємо input як helper,
@@ -36,6 +37,15 @@ const langsCache = ref({})
 // Кеш videoId → запис перекладу ({model, originalLang, segments}). Живе у
 // localStorage — переклад одного відео робимо лише раз.
 const translations = ref({})
+
+// Список завантажених Ollama-моделей і вибрана модель (зберігається у
+// localStorage через saveModelPref).
+const ollamaModels = ref([])
+const selectedModel = ref(DEFAULT_MODEL)
+
+function onModelChange(model) {
+  saveModelPref(model, window.localStorage)
+}
 
 // Фетчить metadata для url якщо ще не починали; кешує у metaByUrl.
 async function ensureMeta(url) {
@@ -105,6 +115,11 @@ function submitShareHelper() {
   helperInput.value = ''
 }
 
+function consumePendingAndroidShare() {
+  const text = consumePendingSharedText(window.localStorage)
+  if (text) handleAndroidShare({ detail: { text } })
+}
+
 // --- Subtitle dialog ---------------------------------------------------------
 const captionDialog = ref({
   open: false,
@@ -169,6 +184,7 @@ async function openTranslateDialog(url) {
     // Оригінал — англійський транскрипт (uk тут за визначенням немає).
     const { text } = await getYoutubeTranscript(videoId, ['en'])
     const result = await translateToUkrainian(text, {
+      model: selectedModel.value,
       onProgress: (done, total) => {
         translateDialog.value = { ...translateDialog.value, progress: { done, total } }
       }
@@ -183,7 +199,7 @@ async function openTranslateDialog(url) {
 }
 
 // --- Lifecycle ---------------------------------------------------------------
-onMounted(() => {
+onMounted(async () => {
   langsCache.value = loadLangsCache(window.localStorage)
   translations.value = loadTranslations(window.localStorage)
   urlHistory.value = loadUrlHistory(window.localStorage)
@@ -192,6 +208,20 @@ onMounted(() => {
     ensureYoutube(url)
   }
   window.addEventListener('myshare:android-share', handleAndroidShare)
+  consumePendingAndroidShare()
+  if (canTranslate) {
+    const saved = loadModelPref(window.localStorage)
+    try {
+      const list = await listOllamaModels()
+      ollamaModels.value = list
+      if (saved && list.includes(saved)) selectedModel.value = saved
+      else if (list.includes(DEFAULT_MODEL)) selectedModel.value = DEFAULT_MODEL
+      else if (list.length) selectedModel.value = list[0]
+    } catch {
+      ollamaModels.value = []
+      if (saved) selectedModel.value = saved
+    }
+  }
 })
 
 onUnmounted(() => {
@@ -201,6 +231,23 @@ onUnmounted(() => {
 
 <template>
   <q-layout view="hHh lpR fFf">
+    <q-header elevated>
+      <q-toolbar>
+        <q-toolbar-title>MyShare</q-toolbar-title>
+        <q-select
+          v-if="canTranslate"
+          v-model="selectedModel"
+          :options="ollamaModels"
+          dense
+          outlined
+          dark
+          hide-bottom-space
+          :disable="!ollamaModels.length"
+          style="min-width: 170px; font-size: 0.8rem"
+          @update:model-value="onModelChange"
+        />
+      </q-toolbar>
+    </q-header>
     <q-page-container>
       <q-page class="column items-center q-pa-lg">
         <q-card class="share-card" flat bordered>
