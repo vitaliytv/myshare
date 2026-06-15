@@ -30,7 +30,7 @@ const DEFAULT_SYSTEM = createSystemPrompt()
  * @param {number} [params.maxSteps] safety cap on loop iterations
  * @param {string} [params.system] system prompt override (only used when building fresh from prompt)
  * @param {object[]} [params.tools] LLM tool manifest (default: agent-scoped)
- * @returns {Promise<{content: string, steps: number, trace: object[], messages: object[], stopped?: string}>}
+ * @returns {Promise<{content: string, steps: number, trace: object[], messages: object[], stopped?: string}>} loop result
  */
 export async function runAgent({ prompt, messages: initialMessages, dispatch, chat, maxSteps = 6, system = DEFAULT_SYSTEM, tools = scopedManifest({ kind: 'agent' }) }) {
   const messages = initialMessages
@@ -104,14 +104,13 @@ export function createOpenAiChat({ baseUrl = OMLX_BASE_URL, model, apiKey, fetch
  * NB: the Rust `litert_chat` command + LiteRT-LM runtime/model bundling are a
  * follow-up (see ADR n-tool-surface). This factory is the JS-side seam: until
  * the command exists, calls reject with the Tauri "command not found" error.
- *
  * @param {object} params config
  * @param {string} [params.model] model id to load (default: gemma4-e2b)
  * @param {(cmd: string, args: object) => Promise<object>} [params.invoke] Tauri invoke (injectable for tests)
  * @returns {(req: {messages: object[], tools: object[]}) => Promise<object>} chat function
  */
 export function createLiteRtChat({ model = 'gemma4-e2b', invoke = tauriInvoke } = {}) {
-  return async function chat({ messages, tools }) {
+  return function chat({ messages, tools }) {
     return invoke('litert_chat', { model, messages, tools })
   }
 }
@@ -121,6 +120,11 @@ export function createLiteRtChat({ model = 'gemma4-e2b', invoke = tauriInvoke } 
  * omlx (OpenAI-compatible) on desktop.
  * @param {object} [params] config forwarded to the chosen adapter
  * @param {boolean} [params.android] platform override (default: isAndroidPlatform())
+ * @param {string} [params.model] served/loaded model id
+ * @param {string} [params.baseUrl] omlx base URL (desktop)
+ * @param {string} [params.apiKey] optional bearer token (desktop)
+ * @param {typeof fetch} [params.fetchFn] fetch implementation (desktop)
+ * @param {(cmd: string, args: object) => Promise<object>} [params.invoke] Tauri invoke (mobile)
  * @returns {(req: {messages: object[], tools: object[]}) => Promise<object>} chat function
  */
 export function selectChat({ android = isAndroidPlatform(), model, baseUrl, apiKey, fetchFn, invoke } = {}) {

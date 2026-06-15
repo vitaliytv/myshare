@@ -37,12 +37,12 @@ describe('catalog', () => {
 
 describe('validateInput', () => {
   test('бракує required → повідомлення', () => {
-    expect(validateInput(getTool('youtube_id'), {})).toMatch(/Missing required field: url/)
+    expect(validateInput(getTool('youtube_id'), {})).toMatch('Missing required field: url')
   })
 
   test('невірний тип string/array', () => {
-    expect(validateInput(getTool('youtube_id'), { url: 42 })).toMatch(/must be a string/)
-    expect(validateInput(getTool('transcript'), { videoId: 'abcdefghijk', preferred: 'uk' })).toMatch(/must be an array/)
+    expect(validateInput(getTool('youtube_id'), { url: 42 })).toMatch('must be a string')
+    expect(validateInput(getTool('transcript'), { videoId: 'abcdefghijk', preferred: 'uk' })).toMatch('must be an array')
   })
 
   test('валідний вхід → null', () => {
@@ -110,14 +110,14 @@ describe('scope', () => {
     expect(allowsTier(undefined, 'read')).toBe(true)
   })
 
-  test('scopedManifest(agent) ховає те, що поза стелею', () => {
+  test('scopedManifest(guest) ховає те, що поза стелею', () => {
     const names = scopedManifest({ kind: 'guest' }).map(m => m.function.name)
     expect(names).toContain('youtube_id') // read дозволено
     expect(names).not.toContain('translate') // write — ні
   })
 
   test('guardDispatch блокує out-of-scope tool до запуску', async () => {
-    const ran = vi.fn(async () => ({ ok: true, output: {} }))
+    const ran = vi.fn().mockResolvedValue({ ok: true, output: {} })
     const guarded = guardDispatch(ran, { kind: 'guest' })
     const res = await guarded('translate', { text: 'hi' })
     expect(res.error.code).toBe('forbidden')
@@ -125,7 +125,7 @@ describe('scope', () => {
   })
 
   test('guardDispatch пропускає дозволене', async () => {
-    const ran = vi.fn(async () => ({ ok: true, output: { videoId: 'x' } }))
+    const ran = vi.fn().mockResolvedValue({ ok: true, output: { videoId: 'x' } })
     const guarded = guardDispatch(ran, { kind: 'agent' })
     await guarded('youtube_id', { url: YT_URL })
     expect(ran).toHaveBeenCalledWith('youtube_id', { url: YT_URL })

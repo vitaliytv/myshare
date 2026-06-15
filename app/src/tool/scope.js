@@ -16,7 +16,7 @@ const ACTOR_MAX_TIER = { human: 'destructive', agent: 'write' }
  * Whether an actor may invoke a tool of the given tier.
  * @param {{ kind?: string }} actor actor descriptor
  * @param {string} tier tool tier
- * @returns {boolean}
+ * @returns {boolean} true when the actor's max tier covers the tool's tier
  */
 export function allowsTier(actor, tier) {
   const max = ACTOR_MAX_TIER[actor?.kind] ?? 'read'
@@ -39,7 +39,7 @@ export function scopedManifest(actor) {
  * @returns {(name: string, input?: object) => Promise<object>} guarded dispatcher
  */
 export function guardDispatch(dispatch, actor) {
-  return async function guarded(name, input) {
+  return function guarded(name, input) {
     const tool = getTool(name)
     if (tool && !allowsTier(actor, tool.tier)) {
       return { ok: false, error: { code: 'forbidden', message: `Tool "${name}" (${tool.tier}) is out of scope for this actor.` } }
