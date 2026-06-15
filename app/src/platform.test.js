@@ -25,7 +25,7 @@ describe('isAndroidUserAgent', () => {
 
   test('порожній рядок або не-рядок → false', () => {
     expect(isAndroidUserAgent('')).toBe(false)
-    expect(isAndroidUserAgent(undefined)).toBe(false)
+    expect(isAndroidUserAgent()).toBe(false)
     expect(isAndroidUserAgent(null)).toBe(false)
   })
 })

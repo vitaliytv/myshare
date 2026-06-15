@@ -82,6 +82,8 @@ C4Container
 
 **Платформа-залежний UI.** Share intent на Android — рідний механізм OS; на desktop його немає. Модуль [components/platform](./components/platform.md) дає Frontend `myshare` поточну ознаку «це Android», за якою у `App.vue` ховається dev-only helper для ручного введення URL на маку. Це гарантує, що production-Android-білд не має лишнього UI, а desktop-розробка не вимагає симулювати share intent через DevTools.
 
+**Локальний переклад субтитрів (omlx).** На desktop (Mac) для YouTube-відео без українських субтитрів Frontend `myshare` пропонує переклад EN→UA через локальний **omlx** — OpenAI-compatible MLX-сервер на `http://127.0.0.1:8000/v1`. Модуль `app/src/omlx.js` робить `POST /v1/chat/completions` із chunked-транскриптом і кешує результат у `localStorage`. На Android omlx-сервера немає, кнопка перекладу не рендериться (`canTranslate = !isAndroid`). Деталі — [components/youtube](./components/youtube.md#переклад-en→ua-через-локальний-omlx-desktop).
+
 <!-- AUTOGEN:start id="crosscutting-decisions" hash="sha256:pending" sources="" -->
 
 Регенерується з accepted ADR `myshare` за тематикою crosscutting (поки порожньо).

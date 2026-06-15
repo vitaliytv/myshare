@@ -1,6 +1,6 @@
-// Зберігає вибір моделі Ollama між сесіями (один рядок у localStorage).
+// Зберігає вибір моделі omlx між сесіями (один рядок у localStorage).
 
-export const STORAGE_KEY = 'myshare.ollamaModel'
+export const STORAGE_KEY = 'myshare.omlxModel'
 
 // Читає збережену модель. Повертає рядок або null.
 export function loadModelPref(storage) {

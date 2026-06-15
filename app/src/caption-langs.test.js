@@ -24,7 +24,7 @@ describe('captionStatus', () => {
   test('порожній список → none', () => {
     expect(captionStatus([]).kind).toBe('none')
     expect(captionStatus(null).kind).toBe('none')
-    expect(captionStatus(undefined).kind).toBe('none')
+    expect(captionStatus().kind).toBe('none')
   })
 
   test('регіональні варіанти нормалізуються (uk-UA, en-US)', () => {

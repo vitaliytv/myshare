@@ -5,7 +5,7 @@ import { fetchPageMeta } from './page-meta.js'
 import { isAndroidPlatform } from './platform.js'
 import { extractYoutubeVideoId, getYoutubeTranscript, getYoutubeLanguages } from './youtube.js'
 import { captionStatus, loadLangsCache, saveLangsCache } from './caption-langs.js'
-import { translateToUkrainian, listOllamaModels, DEFAULT_MODEL } from './ollama.js'
+import { translateToUkrainian, listOmlxModels, DEFAULT_MODEL } from './omlx.js'
 import { loadTranslations, saveTranslations } from './translation-cache.js'
 import { loadModelPref, saveModelPref } from './model-pref.js'
 
@@ -13,8 +13,8 @@ import { loadModelPref, saveModelPref } from './model-pref.js'
 // CustomEvent). На desktop dev share intent'у нема — показуємо input як helper,
 // що віддає той самий event і прогоняє його handleAndroidShare.
 const showShareHelper = !isAndroidPlatform()
-// Переклад субтитрів через локальний Ollama доступний лише на desktop (Mac) —
-// на Android Ollama-сервера нема.
+// Переклад субтитрів через локальний omlx (OpenAI-compatible MLX) доступний
+// лише на desktop (Mac) — на Android omlx-сервера нема.
 const canTranslate = !isAndroidPlatform()
 const helperInput = ref('')
 
@@ -38,9 +38,9 @@ const langsCache = ref({})
 // localStorage — переклад одного відео робимо лише раз.
 const translations = ref({})
 
-// Список завантажених Ollama-моделей і вибрана модель (зберігається у
+// Список завантажених omlx-моделей і вибрана модель (зберігається у
 // localStorage через saveModelPref).
-const ollamaModels = ref([])
+const omlxModels = ref([])
 const selectedModel = ref(DEFAULT_MODEL)
 
 function onModelChange(model) {
@@ -54,8 +54,8 @@ async function ensureMeta(url) {
   try {
     const { title, favicon } = await fetchPageMeta(url)
     metaByUrl.value[url] = { title, favicon, loading: false, error: '' }
-  } catch (e) {
-    metaByUrl.value[url] = { title: '', favicon: '', loading: false, error: String(e?.message ?? e) }
+  } catch (error) {
+    metaByUrl.value[url] = { title: '', favicon: '', loading: false, error: String(error?.message ?? error) }
   }
 }
 
@@ -88,11 +88,11 @@ async function ensureCaptionLangs(url, videoId) {
       langsLoading: false,
       status: captionStatus(langs)
     }
-  } catch (e) {
+  } catch (error) {
     youtubeByUrl.value[url] = {
       ...youtubeByUrl.value[url],
       langsLoading: false,
-      langsError: String(e?.message ?? e)
+      langsError: String(error?.message ?? error)
     }
   }
 }
@@ -148,8 +148,8 @@ async function openCaptionDialog(url) {
       text,
       loading: false
     }
-  } catch (e) {
-    captionDialog.value = { ...captionDialog.value, loading: false, error: String(e?.message ?? e) }
+  } catch (error) {
+    captionDialog.value = { ...captionDialog.value, loading: false, error: String(error?.message ?? error) }
   }
 }
 
@@ -165,7 +165,7 @@ const translateDialog = ref({
 
 // Відкриває переклад субтитрів українською. Якщо вже перекладали це відео —
 // показуємо з кешу миттєво. Інакше тягнемо англійський транскрипт, женемо через
-// Ollama по чанках (з прогресом) і кешуємо результат.
+// omlx по чанках (з прогресом) і кешуємо результат.
 async function openTranslateDialog(url) {
   const yt = youtubeByUrl.value[url]
   if (!yt?.videoId) return
@@ -193,8 +193,8 @@ async function openTranslateDialog(url) {
     translations.value = { ...translations.value, [videoId]: entry }
     saveTranslations(window.localStorage, translations.value)
     translateDialog.value = { ...translateDialog.value, loading: false, progress: null, segments: result.segments }
-  } catch (e) {
-    translateDialog.value = { ...translateDialog.value, loading: false, progress: null, error: String(e?.message ?? e) }
+  } catch (error) {
+    translateDialog.value = { ...translateDialog.value, loading: false, progress: null, error: String(error?.message ?? error) }
   }
 }
 
@@ -212,13 +212,13 @@ onMounted(async () => {
   if (canTranslate) {
     const saved = loadModelPref(window.localStorage)
     try {
-      const list = await listOllamaModels()
-      ollamaModels.value = list
+      const list = await listOmlxModels()
+      omlxModels.value = list
       if (saved && list.includes(saved)) selectedModel.value = saved
       else if (list.includes(DEFAULT_MODEL)) selectedModel.value = DEFAULT_MODEL
       else if (list.length) selectedModel.value = list[0]
     } catch {
-      ollamaModels.value = []
+      omlxModels.value = []
       if (saved) selectedModel.value = saved
     }
   }
@@ -237,12 +237,12 @@ onUnmounted(() => {
         <q-select
           v-if="canTranslate"
           v-model="selectedModel"
-          :options="ollamaModels"
+          :options="omlxModels"
           dense
           outlined
           dark
           hide-bottom-space
-          :disable="!ollamaModels.length"
+          :disable="!omlxModels.length"
           style="min-width: 170px; font-size: 0.8rem"
           @update:model-value="onModelChange"
         />
@@ -367,7 +367,7 @@ onUnmounted(() => {
                     label="Cубтитри"
                     :disable="youtubeByUrl[url].status?.kind === 'none'"
                     @click="openCaptionDialog(url)" />
-                  <!-- Переклад EN→UA через локальний Ollama (тільки desktop,
+                  <!-- Переклад EN→UA через локальний omlx (тільки desktop,
                        тільки коли українських нема, а англійські є). -->
                   <q-btn
                     v-if="canTranslate && youtubeByUrl[url].status?.kind === 'en'"
@@ -378,7 +378,7 @@ onUnmounted(() => {
                     :label="translations[youtubeByUrl[url].videoId] ? 'Переклад' : 'Перекласти'"
                     :title="translations[youtubeByUrl[url].videoId]
                       ? 'Показати збережений переклад українською'
-                      : 'Перекласти англійські субтитри українською (Ollama)'"
+                      : 'Перекласти англійські субтитри українською (omlx)'"
                     @click="openTranslateDialog(url)" />
                 </q-item-section>
               </q-item>
@@ -427,7 +427,7 @@ onUnmounted(() => {
               <div v-if="translateDialog.loading" class="column items-center q-py-xl">
                 <q-spinner color="deep-purple" size="40px" />
                 <div class="q-mt-md text-grey-7">
-                  Переклад через Ollama…
+                  Переклад через omlx…
                   <span v-if="translateDialog.progress?.total">
                     {{ translateDialog.progress.done }}/{{ translateDialog.progress.total }} фрагментів
                   </span>
@@ -436,7 +436,7 @@ onUnmounted(() => {
               <div v-else-if="translateDialog.error" class="text-negative">
                 Не вдалося перекласти: {{ translateDialog.error }}
                 <div class="text-grey-7 q-mt-sm">
-                  Переконайся, що Ollama запущено: <code>ollama serve</code>
+                  Переконайся, що omlx запущено на <code>http://127.0.0.1:8000</code>
                 </div>
               </div>
               <div v-else class="cmp-grid">

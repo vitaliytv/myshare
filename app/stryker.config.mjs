@@ -3,7 +3,7 @@ export default {
   testRunner: 'vitest',
   // n-cursor запускає Stryker через `npx @stryker-mutator/core@latest` із tmp-каталогу;
   // явний plugins list змушує Stryker зарезолвити vitest-runner з нашого hoisted node_modules.
-  plugins: ['@stryker-mutator/vitest-runner'],
+  plugins: ['@stryker-mutator/vitest-runner', './stryker-vue-macros-ignorer.mjs'],
   vitest: { configFile: 'vitest.config.js' },
   // inPlace avoids hoisted-node_modules issues in a Bun monorepo sandbox
   inPlace: true,
@@ -27,5 +27,6 @@ export default {
   reporters: ['json', 'clear-text'],
   jsonReporter: { fileName: 'reports/stryker/mutation.json' },
   tempDirName: 'reports/stryker/.tmp',
-  coverageAnalysis: 'perTest'
+  coverageAnalysis: 'perTest',
+  ignorers: ['vue-macros']
 }

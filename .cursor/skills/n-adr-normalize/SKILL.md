@@ -6,7 +6,6 @@ description: >-
 ---
 
 <!-- n-cursor:worktree:start -->
-
 > [!IMPORTANT]
 > **Worktree-only skill.** Виконується **виключно** в окремому git-worktree (`.worktrees/<current-branch>-adr-normal/`) і **не** паралелиться — один інстанс за раз.
 
@@ -25,7 +24,6 @@ cd ".worktrees/feature-x-adr-normal"
 ```
 
 Тобто branch-argument лишає slash як у git-гілці, а шлях для `cd` бере sanitized форму: slash → `-`.
-
 <!-- n-cursor:worktree:end -->
 
 # n-adr-normalize — ручна нормалізація ADR-чернеток
