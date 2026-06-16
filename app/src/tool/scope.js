@@ -39,12 +39,12 @@ export function scopedManifest(actor) {
  * @returns {(name: string, input?: object) => Promise<object>} guarded dispatcher
  */
 export function guardDispatch(dispatch, actor) {
-  return function guarded(name, input) {
+  return function guarded(name, input, ctx) {
     const tool = getTool(name)
     if (tool && !allowsTier(actor, tool.tier)) {
       return { ok: false, error: { code: 'forbidden', message: `Tool "${name}" (${tool.tier}) is out of scope for this actor.` } }
     }
     // Unknown tool / validation лишаємо базовому dispatch.
-    return dispatch(name, input)
+    return dispatch(name, input, ctx)
   }
 }

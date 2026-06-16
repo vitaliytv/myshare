@@ -1,13 +1,18 @@
 <script setup>
 import { consumePendingSharedText, extractSharedUrl } from './shared-url.js'
 import { appendUrlToHistory, loadUrlHistory, saveUrlHistory } from './url-history.js'
-import { fetchPageMeta } from './page-meta.js'
 import { isAndroidPlatform } from './platform.js'
-import { extractYoutubeVideoId, getYoutubeTranscript, getYoutubeLanguages } from './youtube.js'
+import { extractYoutubeVideoId } from './youtube.js'
 import { captionStatus, loadLangsCache, saveLangsCache } from './caption-langs.js'
-import { translateToUkrainian, listOmlxModels, DEFAULT_MODEL } from './omlx.js'
+import { listOmlxModels, DEFAULT_MODEL } from './omlx.js'
 import { loadTranslations, saveTranslations } from './translation-cache.js'
 import { loadModelPref, saveModelPref } from './model-pref.js'
+// Бекенд-дії йдуть через єдиний tool-surface (n-tool-surface): той самий
+// `dispatch`, що його використовує LLM-агент. UI лише розпаковує конверт
+// {ok, output|error}. extractYoutubeVideoId лишається прямим — це чистий
+// клієнтський парсинг URL (tool youtube_id існує для агента), а listOmlxModels —
+// інфра вибору моделі, не доменна дія.
+import { dispatch } from './tool/index.js'
 
 // На Android користувач отримує URL через справжній Share intent (MainActivity →
 // CustomEvent). На desktop dev share intent'у нема — показуємо input як helper,
@@ -51,11 +56,11 @@ function onModelChange(model) {
 async function ensureMeta(url) {
   if (metaByUrl.value[url]) return
   metaByUrl.value[url] = { title: '', favicon: '', loading: true, error: '' }
-  try {
-    const { title, favicon } = await fetchPageMeta(url)
-    metaByUrl.value[url] = { title, favicon, loading: false, error: '' }
-  } catch (error) {
-    metaByUrl.value[url] = { title: '', favicon: '', loading: false, error: String(error?.message ?? error) }
+  const res = await dispatch('page_meta', { url })
+  if (res.ok) {
+    metaByUrl.value[url] = { ...res.output, loading: false, error: '' }
+  } else {
+    metaByUrl.value[url] = { title: '', favicon: '', loading: false, error: res.error.message }
   }
 }
 
@@ -79,8 +84,9 @@ async function ensureCaptionLangs(url, videoId) {
     return
   }
   youtubeByUrl.value[url] = { ...youtubeByUrl.value[url], langsLoading: true, langsError: '' }
-  try {
-    const langs = await getYoutubeLanguages(videoId)
+  const res = await dispatch('languages', { videoId })
+  if (res.ok) {
+    const langs = res.output
     langsCache.value = { ...langsCache.value, [videoId]: langs }
     saveLangsCache(window.localStorage, langsCache.value)
     youtubeByUrl.value[url] = {
@@ -88,11 +94,11 @@ async function ensureCaptionLangs(url, videoId) {
       langsLoading: false,
       status: captionStatus(langs)
     }
-  } catch (error) {
+  } else {
     youtubeByUrl.value[url] = {
       ...youtubeByUrl.value[url],
       langsLoading: false,
-      langsError: String(error?.message ?? error)
+      langsError: res.error.message
     }
   }
 }
@@ -140,16 +146,16 @@ async function openCaptionDialog(url) {
     loading: true,
     error: ''
   }
-  try {
-    const { languageCode, text } = await getYoutubeTranscript(yt.videoId, PREFERRED_CAPTION_LANGS)
+  const res = await dispatch('transcript', { videoId: yt.videoId, preferred: PREFERRED_CAPTION_LANGS })
+  if (res.ok) {
     captionDialog.value = {
       ...captionDialog.value,
-      title: `${baseTitle} — субтитри ${languageCode}`,
-      text,
+      title: `${baseTitle} — субтитри ${res.output.languageCode}`,
+      text: res.output.text,
       loading: false
     }
-  } catch (error) {
-    captionDialog.value = { ...captionDialog.value, loading: false, error: String(error?.message ?? error) }
+  } else {
+    captionDialog.value = { ...captionDialog.value, loading: false, error: res.error.message }
   }
 }
 
@@ -180,21 +186,26 @@ async function openTranslateDialog(url) {
   }
 
   translateDialog.value = { open: true, title, loading: true, progress: { done: 0, total: 0 }, segments: [], error: '' }
-  try {
-    // Оригінал — англійський транскрипт (uk тут за визначенням немає).
-    const { text } = await getYoutubeTranscript(videoId, ['en'])
-    const result = await translateToUkrainian(text, {
-      model: selectedModel.value,
-      onProgress: (done, total) => {
-        translateDialog.value = { ...translateDialog.value, progress: { done, total } }
-      }
-    })
-    const entry = { model: result.model, originalLang: 'en', segments: result.segments }
+
+  // Оригінал — англійський транскрипт (uk тут за визначенням немає).
+  const tr = await dispatch('transcript', { videoId, preferred: ['en'] })
+  if (!tr.ok) {
+    translateDialog.value = { ...translateDialog.value, loading: false, progress: null, error: tr.error.message }
+    return
+  }
+  // Прогрес по чанках — UI-афорданс поза JSON-схемою; передаємо через ctx.
+  const res = await dispatch('translate', { text: tr.output.text, model: selectedModel.value }, {
+    onProgress: (done, total) => {
+      translateDialog.value = { ...translateDialog.value, progress: { done, total } }
+    }
+  })
+  if (res.ok) {
+    const entry = { model: res.output.model, originalLang: 'en', segments: res.output.segments }
     translations.value = { ...translations.value, [videoId]: entry }
     saveTranslations(window.localStorage, translations.value)
-    translateDialog.value = { ...translateDialog.value, loading: false, progress: null, segments: result.segments }
-  } catch (error) {
-    translateDialog.value = { ...translateDialog.value, loading: false, progress: null, error: String(error?.message ?? error) }
+    translateDialog.value = { ...translateDialog.value, loading: false, progress: null, segments: res.output.segments }
+  } else {
+    translateDialog.value = { ...translateDialog.value, loading: false, progress: null, error: res.error.message }
   }
 }
 

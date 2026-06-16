@@ -33,9 +33,11 @@
 ### Consequences
 
 - Логіка лишається в одному місці (наявні модулі), а каталог додає схему й LLM-досяжність — UI і агент звертаються до однієї реалізації, без дублювання.
+- `App.vue` мігровано на `dispatch`: `ensureMeta` → `page_meta`, `ensureCaptionLangs` → `languages`, `openCaptionDialog`/`openTranslateDialog` → `transcript`, переклад → `translate`. UI лише розпаковує конверт `{ok, output|error}` замість try/catch. `extractYoutubeVideoId` лишився прямим (чистий клієнтський парсинг; tool `youtube_id` існує для агента), `listOmlxModels` — інфра вибору моделі, не доменна дія.
+- Прогрес-бар перекладу (callback `onProgress`) не серіалізується в JSON-схему, тож `dispatch(name, input, ctx)` отримав необов'язковий `ctx` для in-app афордансів (`onProgress`, `signal`). LLM-шлях `ctx` не передає, маніфест його не бачить.
 - Нова руйнівна дія автоматично стане human-only завдяки `tier`/scope без правок у споживачах.
-- Покрито тестами: `app/src/tool/tool.test.js` (каталог, dispatch, маніфест, scope) і `app/src/tool/llm.test.js` (agent loop, обидва chat-адаптери, selectChat) — 26 тестів.
-- **Незакрите:** Rust-команда `litert_chat` і бандлинг LiteRT-LM рантайму/моделі Gemma4-E2B ще не реалізовані — `createLiteRtChat` поки лише JS-сім (виклики reject'аться як «команда не знайдена», доки команду не додано). `App.vue` поки кличе модулі напряму; міграція UI-call-site'ів на `dispatch` — інкрементальний наступний крок. MCP-обгортка над каталогом у scope не входила.
+- Покрито тестами: `app/src/tool/tool.test.js` (каталог, dispatch, ctx, маніфест, scope) і `app/src/tool/llm.test.js` (agent loop, обидва chat-адаптери, selectChat). Повний сьют — 126 тестів зелені; `vite build` проходить.
+- **Незакрите:** Rust-команда `litert_chat` і бандлинг LiteRT-LM рантайму/моделі Gemma4-E2B ще не реалізовані — `createLiteRtChat` поки лише JS-сім (виклики reject'аться як «команда не знайдена», доки команду не додано). MCP-обгортка над каталогом у scope не входила.
 
 ## More Information
 

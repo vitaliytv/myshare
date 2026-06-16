@@ -1,12 +1,13 @@
 import { getTool } from './catalog.js'
 
-// dispatch(name, input): валідуємо вхід проти схеми tool'а, запускаємо його
-// через transport і повертаємо уніфікований конверт. Transport — єдине, що
+// dispatch(name, input, ctx): валідуємо вхід проти схеми tool'а, запускаємо
+// його через transport і повертаємо уніфікований конверт. Transport — єдине, що
 // можна підмінити (за замовчуванням кличе tool.run; тести/обгортки інжектують
-// своє), тож контракт {ok, output|error} лишається однаковим для UI й LLM.
+// своє), тож контракт {ok, output|error} лишається однаковим для UI й LLM. ctx
+// — не-схемні афорданси in-app виклику (onProgress, signal); LLM його не дає.
 
 // Дефолтний transport: локальний виклик хендлера tool'а в цьому ж рантаймі.
-const localTransport = (tool, input) => tool.run(input)
+const localTransport = (tool, input, ctx) => tool.run(input, ctx)
 
 /**
  * Validate an input object against a tool's schema and optional custom validator.
@@ -31,11 +32,11 @@ export function validateInput(tool, input) {
 
 /**
  * Build a dispatch function bound to a transport.
- * @param {(tool: object, input: object) => unknown} [transport] runs the tool's backend call
- * @returns {(name: string, input?: object) => Promise<object>} dispatch returning an envelope
+ * @param {(tool: object, input: object, ctx: object) => unknown} [transport] runs the tool's backend call
+ * @returns {(name: string, input?: object, ctx?: object) => Promise<object>} dispatch returning an envelope
  */
 export function createDispatch(transport = localTransport) {
-  return async function dispatch(name, input) {
+  return async function dispatch(name, input, ctx = {}) {
     const tool = getTool(name)
     if (!tool) return { ok: false, error: { code: 'not_found', message: `Unknown tool: ${name}` } }
 
@@ -43,7 +44,7 @@ export function createDispatch(transport = localTransport) {
     if (invalid) return { ok: false, error: { code: 'validation', message: invalid } }
 
     try {
-      const output = await transport(tool, input ?? {})
+      const output = await transport(tool, input ?? {}, ctx)
       return { ok: true, output }
     }
     catch (error) {

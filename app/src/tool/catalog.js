@@ -59,7 +59,9 @@ export const TOOLS = [
       text: { type: 'string', required: true, description: 'Source text in English.' },
       model: { type: 'string', required: false, description: 'Preferred model id; falls back to the first loaded model.' },
     },
-    run: input => translateToUkrainian(input.text, { model: input.model }),
+    // ctx несе UI-афорданси поза JSON-схемою (onProgress, signal) — LLM-шлях їх
+    // не передає, маніфест їх не бачить.
+    run: (input, ctx = {}) => translateToUkrainian(input.text, { model: input.model, onProgress: ctx.onProgress, signal: ctx.signal }),
   },
 ]
 

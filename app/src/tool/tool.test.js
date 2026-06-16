@@ -74,6 +74,13 @@ describe('dispatch', () => {
     const res = await boom('youtube_id', { url: YT_URL })
     expect(res).toEqual({ ok: false, error: { code: 'io', message: 'boom' } })
   })
+
+  test('пробрасує ctx у transport (для onProgress/signal)', async () => {
+    const seen = []
+    const d = createDispatch((tool, input, ctx) => { seen.push(ctx); return {} })
+    await d('youtube_id', { url: YT_URL }, { onProgress: 'fn' })
+    expect(seen[0]).toEqual({ onProgress: 'fn' })
+  })
 })
 
 describe('manifest', () => {
@@ -127,7 +134,7 @@ describe('scope', () => {
   test('guardDispatch пропускає дозволене', async () => {
     const ran = vi.fn().mockResolvedValue({ ok: true, output: { videoId: 'x' } })
     const guarded = guardDispatch(ran, { kind: 'agent' })
-    await guarded('youtube_id', { url: YT_URL })
-    expect(ran).toHaveBeenCalledWith('youtube_id', { url: YT_URL })
+    await guarded('youtube_id', { url: YT_URL }, { actor: 'agent' })
+    expect(ran).toHaveBeenCalledWith('youtube_id', { url: YT_URL }, { actor: 'agent' })
   })
 })
