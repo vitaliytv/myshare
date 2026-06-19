@@ -18,6 +18,7 @@
       "name": "app",
       "version": "0.1.0",
       "dependencies": {
+        "@7n/tauri-components": "^0.4.1",
         "@quasar/extras": "^1.18.0",
         "@tauri-apps/api": "^2.11.0",
         "@tauri-apps/plugin-http": "^2.5.0",
@@ -50,6 +51,8 @@
     },
   },
   "packages": {
+    "@7n/tauri-components": ["@7n/tauri-components@0.4.1", "", { "dependencies": { "marked": "^18.0.5" }, "peerDependencies": { "@tauri-apps/api": "^2.0.0", "@tauri-apps/plugin-http": "^2.0.0", "quasar": "^2.0.0", "vue": "^3.0.0" }, "optionalPeers": ["@tauri-apps/api", "@tauri-apps/plugin-http", "quasar"] }, "sha512-INv6pGdXcq7V/emizcTNva4zM8W+kNng/Lrp9jlICaG8BCxgeAtTKGO/rHpz5MQ0EHUH13VktTI+N3CTngvSPw=="],
+
     "@babel/code-frame": ["@babel/code-frame@7.29.7", "", { "dependencies": { "@babel/helper-validator-identifier": "^7.29.7", "js-tokens": "^4.0.0", "picocolors": "^1.1.1" } }, "sha512-Aup7aUOfpbAUg2ROOJN6Iw5f9DMBlzu0mIkm/malLQFN/YQgO48wCj0Kxa3sEHJvPVFg7siR+qRInwXd2qhQKw=="],
 
     "@babel/compat-data": ["@babel/compat-data@7.29.7", "", {}, "sha512-locTkQyKvwIEgBzVrn8693ebc97F2U8ZHjbXwDXJ5Fn2TCpNwTlKcaKLkdHop5c/icOFE7qt7Q9JC5hnKNa6Gg=="],
@@ -1413,6 +1416,8 @@
     "magicast": ["magicast@0.5.3", "", { "dependencies": { "@babel/parser": "^7.29.3", "@babel/types": "^7.29.0", "source-map-js": "^1.2.1" } }, "sha512-pVKE4UdSQ7DvHzivsCIFx2BJn1mHG6KsyrFcaxFx6tONdneEuThrDx0Cj3AMg58KyN4pzYT+LHOotxDQDjNvkw=="],
 
     "make-dir": ["make-dir@4.0.0", "", { "dependencies": { "semver": "^7.5.3" } }, "sha512-hXdUTZYIVOt1Ex//jAQi+wTZZpUpwBj/0QsOzqegb3rGMMeJiSEu5xLHnYfBrRV4RH2+OCSOO95Is/7x1WJ4bw=="],
+
+    "marked": ["marked@18.0.5", "", { "bin": { "marked": "bin/marked.js" } }, "sha512-S6GcvALHg6K4ohtu4E7x0a1AqhAjp6cV8KhLSyN9qVapnzJkusVBxZRcIU9AeYsbe6P1hKDusSbEOzGyyuce6w=="],
 
     "math-intrinsics": ["math-intrinsics@1.1.0", "", {}, "sha512-/IXtbwEk5HTPyEwyKX6hGkYXxM9nbj64B+ilVJnC/R6B0pH5G4V3b0pVbL7DBj4tkhBAppbQUlf6F6Xl9LHu1g=="],
 

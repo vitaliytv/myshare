@@ -1,6 +1,7 @@
 import { extractYoutubeVideoId, getYoutubeTranscript, getYoutubeLanguages } from '../youtube.js'
 import { fetchPageMeta } from '../page-meta.js'
 import { translateToUkrainian } from '../omlx.js'
+import { addLink, listLinks } from '../link-store.js'
 
 // Єдине джерело правди для headless tool-surface (n-tool-surface).
 // Кожен tool — іменований виклик зі схемою, до якого однаково дотягуються UI
@@ -62,6 +63,22 @@ export const TOOLS = [
     // ctx несе UI-афорданси поза JSON-схемою (onProgress, signal) — LLM-шлях їх
     // не передає, маніфест їх не бачить.
     run: (input, ctx = {}) => translateToUkrainian(input.text, { model: input.model, onProgress: ctx.onProgress, signal: ctx.signal }),
+  },
+  {
+    tier: 'read',
+    name: 'list_links',
+    summary: 'List the URLs the user has saved/shared (newest first).',
+    input: {},
+    run: () => listLinks(),
+  },
+  {
+    tier: 'write',
+    name: 'add_link',
+    summary: 'Save a new URL to the shared-links list. Returns the updated list (newest first).',
+    input: {
+      url: { type: 'string', required: true, description: 'Absolute http(s) URL to save.' },
+    },
+    run: input => addLink(input.url),
   },
 ]
 

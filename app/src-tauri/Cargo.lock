@@ -2202,6 +2202,7 @@ dependencies = [
  "serde_json",
  "tauri",
  "tauri-build",
+ "tauri-plugin-agent",
  "tauri-plugin-http",
  "tauri-plugin-opener",
  "tauri-plugin-window-state",
@@ -3867,6 +3868,18 @@ dependencies = [
  "serde_json",
  "tauri-utils",
  "walkdir",
+]
+
+[[package]]
+name = "tauri-plugin-agent"
+version = "0.1.0"
+source = "git+https://github.com/nitra/tauri-components#c04e31a8dd885bb4e588473bbfbb1edb9f3e87c1"
+dependencies = [
+ "serde",
+ "serde_json",
+ "tauri",
+ "tauri-plugin",
+ "uuid",
 ]
 
 [[package]]

@@ -1,6 +1,8 @@
 <script setup>
+import { AgentDialog, AuditDialog } from '@7n/tauri-components/components'
 import { consumePendingSharedText, extractSharedUrl } from './shared-url.js'
-import { appendUrlToHistory, loadUrlHistory, saveUrlHistory } from './url-history.js'
+import { addLink, listLinks } from './link-store.js'
+import { useAgent } from './composables/use-agent.js'
 import { isAndroidPlatform } from './platform.js'
 import { extractYoutubeVideoId } from './youtube.js'
 import { captionStatus, loadLangsCache, saveLangsCache } from './caption-langs.js'
@@ -24,6 +26,9 @@ const canTranslate = !isAndroidPlatform()
 const helperInput = ref('')
 
 const urlHistory = ref([])
+const agent = useAgent()
+const agentOpen = ref(false)
+const auditOpen = ref(false)
 // reactive map url → { title, favicon, loading, error }
 const metaByUrl = ref({})
 // reactive map url → { videoId, langsLoading, langsError, status } для YouTube
@@ -103,13 +108,12 @@ async function ensureCaptionLangs(url, videoId) {
   }
 }
 
-function handleAndroidShare(event) {
+async function handleAndroidShare(event) {
   const text = typeof event.detail?.text === 'string' ? event.detail.text : ''
   const url = extractSharedUrl(text)
   if (!url) return
 
-  urlHistory.value = appendUrlToHistory(urlHistory.value, url)
-  saveUrlHistory(window.localStorage, urlHistory.value)
+  urlHistory.value = await addLink(url)
   ensureMeta(url)
   ensureYoutube(url)
 }
@@ -213,7 +217,7 @@ async function openTranslateDialog(url) {
 onMounted(async () => {
   langsCache.value = loadLangsCache(window.localStorage)
   translations.value = loadTranslations(window.localStorage)
-  urlHistory.value = loadUrlHistory(window.localStorage)
+  urlHistory.value = await listLinks()
   for (const url of urlHistory.value) {
     ensureMeta(url)
     ensureYoutube(url)
@@ -257,8 +261,13 @@ onUnmounted(() => {
           style="min-width: 170px; font-size: 0.8rem"
           @update:model-value="onModelChange"
         />
+        <q-btn @click="agentOpen = true" flat dense no-caps icon="sym_o_smart_toy" label="Агент" />
+        <q-btn @click="auditOpen = true" flat dense round icon="sym_o_history" title="Журнал запитів" />
       </q-toolbar>
     </q-header>
+
+    <AgentDialog v-model="agentOpen" :agent="agent" />
+    <AuditDialog v-model="auditOpen" :agent="agent" />
     <q-page-container>
       <q-page class="column items-center q-pa-lg">
         <q-card class="share-card" flat bordered>

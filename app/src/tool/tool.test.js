@@ -3,13 +3,13 @@ import { describe, expect, test, vi } from 'vitest'
 // Каталог тягне youtube.js / page-meta.js / omlx.js, які імпортують tauri-модулі.
 // Мокаємо їх, щоб імпорт не падав; самі хендлери тут не викликаємо мережево
 // (youtube_id — чиста функція; io-шлях тестуємо через підмінений transport).
+// Маніфест/скоуп/agent-loop тепер тестуються в @7n/tauri-components — тут лише
+// домен myshare: каталог, валідація вводу й локальний dispatch (з ctx).
 vi.mock('@tauri-apps/plugin-http', () => ({ fetch: vi.fn() }))
 vi.mock('@tauri-apps/api/core', () => ({ invoke: vi.fn() }))
 
 const { TOOLS, getTool } = await import('./catalog.js')
 const { createDispatch, dispatch, validateInput } = await import('./dispatch.js')
-const { toolManifest, listTools } = await import('./manifest.js')
-const { allowsTier, scopedManifest, guardDispatch } = await import('./scope.js')
 
 const YT_URL = 'https://youtu.be/abcdefghijk'
 
@@ -27,6 +27,11 @@ describe('catalog', () => {
   test('імена унікальні', () => {
     const names = TOOLS.map(t => t.name)
     expect(new Set(names).size).toBe(names.length)
+  })
+
+  test('містить нові link-інструменти', () => {
+    expect(getTool('list_links')?.tier).toBe('read')
+    expect(getTool('add_link')?.tier).toBe('write')
   })
 
   test('getTool знаходить і повертає null для невідомого', () => {
@@ -80,61 +85,5 @@ describe('dispatch', () => {
     const d = createDispatch((tool, input, ctx) => { seen.push(ctx); return {} })
     await d('youtube_id', { url: YT_URL }, { onProgress: 'fn' })
     expect(seen[0]).toEqual({ onProgress: 'fn' })
-  })
-})
-
-describe('manifest', () => {
-  test('toolManifest → OpenAI function-calling форма', () => {
-    const manifest = toolManifest()
-    expect(manifest).toHaveLength(TOOLS.length)
-    const ytId = manifest.find(m => m.function.name === 'youtube_id')
-    expect(ytId.type).toBe('function')
-    expect(ytId.function.parameters).toEqual({
-      type: 'object',
-      properties: { url: { type: 'string', description: expect.any(String) } },
-      required: ['url'],
-    })
-  })
-
-  test('toolManifest приймає allow-фільтр', () => {
-    const only = toolManifest(t => t.name === 'translate')
-    expect(only.map(m => m.function.name)).toEqual(['translate'])
-  })
-
-  test('listTools → name + summary', () => {
-    const list = listTools()
-    expect(list).toHaveLength(TOOLS.length)
-    expect(list[0]).toEqual({ name: expect.any(String), summary: expect.any(String) })
-  })
-})
-
-describe('scope', () => {
-  test('allowsTier за актором', () => {
-    expect(allowsTier({ kind: 'human' }, 'destructive')).toBe(true)
-    expect(allowsTier({ kind: 'agent' }, 'write')).toBe(true)
-    expect(allowsTier({ kind: 'agent' }, 'destructive')).toBe(false)
-    expect(allowsTier({ kind: 'guest' }, 'write')).toBe(false) // невідомий → read
-    expect(allowsTier(undefined, 'read')).toBe(true)
-  })
-
-  test('scopedManifest(guest) ховає те, що поза стелею', () => {
-    const names = scopedManifest({ kind: 'guest' }).map(m => m.function.name)
-    expect(names).toContain('youtube_id') // read дозволено
-    expect(names).not.toContain('translate') // write — ні
-  })
-
-  test('guardDispatch блокує out-of-scope tool до запуску', async () => {
-    const ran = vi.fn().mockResolvedValue({ ok: true, output: {} })
-    const guarded = guardDispatch(ran, { kind: 'guest' })
-    const res = await guarded('translate', { text: 'hi' })
-    expect(res.error.code).toBe('forbidden')
-    expect(ran).not.toHaveBeenCalled()
-  })
-
-  test('guardDispatch пропускає дозволене', async () => {
-    const ran = vi.fn().mockResolvedValue({ ok: true, output: { videoId: 'x' } })
-    const guarded = guardDispatch(ran, { kind: 'agent' })
-    await guarded('youtube_id', { url: YT_URL }, { actor: 'agent' })
-    expect(ran).toHaveBeenCalledWith('youtube_id', { url: YT_URL }, { actor: 'agent' })
   })
 })
