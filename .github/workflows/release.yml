@@ -77,7 +77,7 @@ jobs:
           project-slug: 'vitaliytv-kfse'
           identity-id: '53691c96-17d9-4389-b078-0f77073809ab'
           env-slug: 'main'
-          secret-path: '/myshare'
+          secret-path: '/apple'
 
       - name: Build and upload DMG
         uses: tauri-apps/tauri-action@v0
