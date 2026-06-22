@@ -266,7 +266,7 @@ onUnmounted(() => {
       </q-toolbar>
     </q-header>
 
-    <AgentDialog v-model="agentOpen" :agent="agent" />
+    <AgentDialog v-model="agentOpen" :agent="agent" prompt-hint="наприклад: отримай субтитри відео youtube.com/watch?v=… і перекладиукраїнською" />
     <AuditDialog v-model="auditOpen" :agent="agent" />
     <q-page-container>
       <q-page class="column items-center q-pa-lg">
