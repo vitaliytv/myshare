@@ -1,5 +1,6 @@
 <script setup>
 import { AgentDialog, AuditDialog } from '@7n/tauri-components/components'
+import { useUpdater } from './composables/use-updater.js'
 import { consumePendingSharedText, extractSharedUrl } from './shared-url.js'
 import { addLink, listLinks } from './link-store.js'
 import { useAgent } from './composables/use-agent.js'
@@ -27,6 +28,7 @@ const helperInput = ref('')
 
 const urlHistory = ref([])
 const agent = useAgent()
+useUpdater()
 const agentOpen = ref(false)
 const auditOpen = ref(false)
 // reactive map url → { title, favicon, loading, error }

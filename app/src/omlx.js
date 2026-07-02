@@ -6,12 +6,21 @@
 // послідовно, зберігаючи пари «оригінал ↔ переклад» (segments) для
 // порівняння. Результат кешується викликачем (translation-cache.js).
 
+import { resolveOmlxBaseUrlCached } from '@7n/tauri-components'
 import { fetch } from '@tauri-apps/plugin-http'
 
 export const OMLX_BASE_URL = 'http://127.0.0.1:8000/v1'
 // Модель за замовчуванням. У myshare omlx бере її лише як preferred — якщо
 // не завантажена, `resolveModel` візьме першу зі списку `GET /v1/models`.
 export const DEFAULT_MODEL = 'gemma-4-e4b-it-OptiQ-4bit'
+
+// Ефективний base: явний аргумент виграє (тести, кастомні виклики); без
+// нього — кешований probe myllm-проксі (:8088), інакше прямий :8000.
+// @param {string} [base]
+// @returns {Promise<string>}
+async function resolveBase(base) {
+  return base ?? (await resolveOmlxBaseUrlCached({ directUrl: OMLX_BASE_URL, fetchFn: fetch }))
+}
 
 // Ріже текст на чанки не довші за maxChars, по межах абзаців (порожній
 // рядок), потім рядків; задовгий рядок — жорстко по символах. Чиста функція.
@@ -91,8 +100,9 @@ export function extractContent(json) {
 
 // Список завантажених моделей omlx (GET /v1/models).
 // @returns {Promise<string[]>}
-export async function listOmlxModels(base = OMLX_BASE_URL, signal) {
-  const response = await fetch(`${base}/models`, { method: 'GET', signal })
+export async function listOmlxModels(base, signal) {
+  const resolvedBase = await resolveBase(base)
+  const response = await fetch(`${resolvedBase}/models`, { method: 'GET', signal })
   if (!response.ok) throw new Error(`omlx HTTP ${response.status}`)
   const json = await response.json()
   return Array.isArray(json?.data)
@@ -102,8 +112,9 @@ export async function listOmlxModels(base = OMLX_BASE_URL, signal) {
 
 // Обирає модель: preferred, якщо завантажена; інакше першу наявну.
 // @returns {Promise<string>}
-export async function resolveModel(base = OMLX_BASE_URL, preferred = DEFAULT_MODEL, signal) {
-  const models = await listOmlxModels(base, signal)
+export async function resolveModel(base, preferred = DEFAULT_MODEL, signal) {
+  const resolvedBase = await resolveBase(base)
+  const models = await listOmlxModels(resolvedBase, signal)
   if (!models.length) throw new Error('omlx: немає завантажених моделей')
   return models.includes(preferred) ? preferred : models[0]
 }
@@ -111,8 +122,9 @@ export async function resolveModel(base = OMLX_BASE_URL, preferred = DEFAULT_MOD
 // Перекладає один чанк (POST /v1/chat/completions, OpenAI-compatible).
 // @param {string} chunk
 // @returns {Promise<string>} переклад
-export async function translateChunk(chunk, { model = DEFAULT_MODEL, base = OMLX_BASE_URL, apiKey, signal } = {}) {
-  const response = await fetch(`${base}/chat/completions`, {
+export async function translateChunk(chunk, { model = DEFAULT_MODEL, base, apiKey, signal } = {}) {
+  const resolvedBase = await resolveBase(base)
+  const response = await fetch(`${resolvedBase}/chat/completions`, {
     method: 'POST',
     signal,
     headers: {
@@ -138,12 +150,15 @@ export async function translateChunk(chunk, { model = DEFAULT_MODEL, base = OMLX
 // @param {string} text
 // @param {{model?: string, base?: string, apiKey?: string, onProgress?: (done: number, total: number) => void, signal?: AbortSignal}} opts
 // @returns {Promise<{model: string, segments: Array<{original: string, translated: string}>, text: string}>}
-export async function translateToUkrainian(text, { model, base = OMLX_BASE_URL, apiKey, onProgress, signal } = {}) {
-  const chosenModel = model ?? (await resolveModel(base, DEFAULT_MODEL, signal))
+export async function translateToUkrainian(text, { model, base, apiKey, onProgress, signal } = {}) {
+  // Резолвимо base один раз нагорі: довгий переклад не повинен фліпати ціль
+  // посеред роботи, коли TTL probe-кешу спливе.
+  const resolvedBase = await resolveBase(base)
+  const chosenModel = model ?? (await resolveModel(resolvedBase, DEFAULT_MODEL, signal))
   const chunks = chunkText(text)
   const segments = []
   for (let i = 0; i < chunks.length; i++) {
-    const translated = await translateChunk(chunks[i], { model: chosenModel, base, apiKey, signal })
+    const translated = await translateChunk(chunks[i], { model: chosenModel, base: resolvedBase, apiKey, signal })
     segments.push({ original: chunks[i], translated })
     onProgress?.(i + 1, chunks.length)
   }
