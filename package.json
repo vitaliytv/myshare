@@ -8,7 +8,7 @@
   ],
   "type": "module",
   "scripts": {
-    "start": "bun --cwd=app run tauri dev",
+    "start": "bun --cwd=app run tauri dev --config src-tauri/tauri.conf.dev.json",
     "android": "bun --cwd=app run tauri android dev",
     "myshare-apk": "bun --cwd=app run tauri android build --apk --debug --target aarch64 && cp app/src-tauri/gen/android/app/build/outputs/apk/universal/debug/app-universal-debug.apk myshare.apk",
     "tauri": "bun --cwd=app run tauri",
