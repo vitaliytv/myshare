@@ -1,4 +1,5 @@
 <script setup>
+import { getVersion } from '@tauri-apps/api/app'
 import { AgentDialog, AuditDialog } from '@7n/tauri-components/components'
 import { useUpdater } from './composables/use-updater.js'
 import { consumePendingSharedText, extractSharedUrl } from './shared-url.js'
@@ -26,6 +27,7 @@ const showShareHelper = !isAndroidPlatform()
 const canTranslate = !isAndroidPlatform()
 const helperInput = ref('')
 
+const appVersion = ref('')
 const urlHistory = ref([])
 const agent = useAgent()
 useUpdater()
@@ -217,6 +219,7 @@ async function openTranslateDialog(url) {
 
 // --- Lifecycle ---------------------------------------------------------------
 onMounted(async () => {
+  appVersion.value = await getVersion()
   langsCache.value = loadLangsCache(window.localStorage)
   translations.value = loadTranslations(window.localStorage)
   urlHistory.value = await listLinks()
@@ -250,7 +253,10 @@ onUnmounted(() => {
   <q-layout view="hHh lpR fFf">
     <q-header elevated>
       <q-toolbar>
-        <q-toolbar-title>MyShare</q-toolbar-title>
+        <q-toolbar-title>
+          MyShare
+          <span v-if="appVersion" class="text-caption text-blue-2">v{{ appVersion }}</span>
+        </q-toolbar-title>
         <q-select
           v-if="canTranslate"
           v-model="selectedModel"
