@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.2.1] - 2026-07-05
+
+### Changed
+
+- Локальний use-updater.js замінено на спільний useUpdater() з @7n/tauri-components/vue (0.8.0) — та сама логіка, тепер в одній копії для mlmail/myshare/myllm/task.
+
+### Fixed
+
+- Android-білд падав ("Permission updater:default not found") — updater-плагін не реєструється на Android/iOS, тож дозвіл винесено в окрему capability з `platforms: [macOS, windows, linux]`.
+
 ## [0.2.0] - 2026-07-05
 
 ### Added
