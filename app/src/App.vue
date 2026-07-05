@@ -1,7 +1,7 @@
 <script setup>
 import { getVersion } from '@tauri-apps/api/app'
 import { AgentDialog, AuditDialog } from '@7n/tauri-components/components'
-import { useUpdater } from './composables/use-updater.js'
+import { useUpdater } from '@7n/tauri-components/vue'
 import { consumePendingSharedText, extractSharedUrl } from './shared-url.js'
 import { addLink, listLinks } from './link-store.js'
 import { useAgent } from './composables/use-agent.js'
