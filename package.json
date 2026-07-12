@@ -4,7 +4,8 @@
   "private": true,
   "workspaces": [
     "app",
-    "scripts"
+    "scripts",
+    "relay"
   ],
   "type": "module",
   "scripts": {

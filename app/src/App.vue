@@ -593,7 +593,7 @@ onUnmounted(() => {
   border-bottom: 1px solid rgb(0 0 0 / 6%);
 }
 
-@media (max-width: 600px) {
+@media (width <= 600px) {
   .cmp-grid {
     grid-template-columns: 1fr;
     row-gap: 4px;
