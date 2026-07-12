@@ -7,19 +7,25 @@
 export const STORAGE_KEY = 'myshare.translations'
 
 // Перевіряє форму запису перекладу. Чиста функція.
+/**
+ *
+ */
 export function isValidEntry(entry) {
   return (
     entry !== null &&
     typeof entry === 'object' &&
     Array.isArray(entry.segments) &&
     entry.segments.every(
-      (s) => s !== null && typeof s === 'object' && typeof s.original === 'string' && typeof s.translated === 'string'
+      s => s !== null && typeof s === 'object' && typeof s.original === 'string' && typeof s.translated === 'string'
     )
   )
 }
 
 // Читає кеш перекладів. На будь-яку неконсистентність — порожній обʼєкт;
 // окремі биті записи відкидаються.
+/**
+ *
+ */
 export function loadTranslations(storage) {
   if (!storage || typeof storage.getItem !== 'function') return {}
 
@@ -43,6 +49,9 @@ export function loadTranslations(storage) {
 }
 
 // Зберігає весь map videoId → запис у localStorage.
+/**
+ *
+ */
 export function saveTranslations(storage, cache) {
   if (!storage || typeof storage.setItem !== 'function') return
 

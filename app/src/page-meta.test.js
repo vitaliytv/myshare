@@ -12,6 +12,9 @@ beforeEach(() => {
 })
 
 // Хелпер: побудувати fetch-like Response з HTML.
+/**
+ *
+ */
 function htmlResponse(html, { url = 'https://example.com/', status = 200 } = {}) {
   return {
     ok: status >= 200 && status < 300,

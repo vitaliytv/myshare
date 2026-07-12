@@ -1,10 +1,13 @@
 import { describe, expect, test } from 'vitest'
 import { isValidEntry, loadTranslations, saveTranslations, STORAGE_KEY } from './translation-cache.js'
 
+/**
+ *
+ */
 function makeStorage(initial = {}) {
   const store = { ...initial }
   return {
-    getItem: (k) => (k in store ? store[k] : null),
+    getItem: k => (k in store ? store[k] : null),
     setItem: (k, v) => {
       store[k] = String(v)
     },

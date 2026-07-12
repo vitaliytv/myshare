@@ -47,7 +47,9 @@ describe('validateInput', () => {
 
   test('невірний тип string/array', () => {
     expect(validateInput(getTool('youtube_id'), { url: 42 })).toMatch('must be a string')
-    expect(validateInput(getTool('transcript'), { videoId: 'abcdefghijk', preferred: 'uk' })).toMatch('must be an array')
+    expect(validateInput(getTool('transcript'), { videoId: 'abcdefghijk', preferred: 'uk' })).toMatch(
+      'must be an array'
+    )
   })
 
   test('валідний вхід → null', () => {
@@ -75,14 +77,19 @@ describe('dispatch', () => {
   })
 
   test('виняток у transport → io', async () => {
-    const boom = createDispatch(() => { throw new Error('boom') })
+    const boom = createDispatch(() => {
+      throw new Error('boom')
+    })
     const res = await boom('youtube_id', { url: YT_URL })
     expect(res).toEqual({ ok: false, error: { code: 'io', message: 'boom' } })
   })
 
   test('пробрасує ctx у transport (для onProgress/signal)', async () => {
     const seen = []
-    const d = createDispatch((tool, input, ctx) => { seen.push(ctx); return {} })
+    const d = createDispatch((tool, input, ctx) => {
+      seen.push(ctx)
+      return {}
+    })
     await d('youtube_id', { url: YT_URL }, { onProgress: 'fn' })
     expect(seen[0]).toEqual({ onProgress: 'fn' })
   })

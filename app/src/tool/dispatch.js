@@ -25,7 +25,8 @@ export function validateInput(tool, input) {
     }
     if (spec.type === 'string' && typeof value !== 'string') return `Field "${key}" must be a string`
     if (spec.type === 'array' && !Array.isArray(value)) return `Field "${key}" must be an array`
-    if (spec.type === 'object' && (typeof value !== 'object' || Array.isArray(value))) return `Field "${key}" must be an object`
+    if (spec.type === 'object' && (typeof value !== 'object' || Array.isArray(value)))
+      return `Field "${key}" must be an object`
   }
   return tool.validate ? tool.validate(data) : null
 }
@@ -46,8 +47,7 @@ export function createDispatch(transport = localTransport) {
     try {
       const output = await transport(tool, input ?? {}, ctx)
       return { ok: true, output }
-    }
-    catch (error) {
+    } catch (error) {
       return { ok: false, error: { code: 'io', message: String(error?.message ?? error) } }
     }
   }

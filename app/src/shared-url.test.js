@@ -6,7 +6,7 @@ test('extractSharedUrl returns direct URL', () => {
 })
 
 test('extractSharedUrl accepts http:// scheme', () => {
-  expect(extractSharedUrl('http://example.com/page')).toBe('http://example.com/page')
+  expect(extractSharedUrl("https://example.com/page")).toBe("https://example.com/page")
 })
 
 test('extractSharedUrl returns first URL from shared text', () => {

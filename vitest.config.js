@@ -7,6 +7,7 @@ import { defineConfig } from 'vitest/config'
 // тож .worktrees/ поза прогоном.
 export default defineConfig({
   test: {
-    projects: ['app/vitest.config.js', 'scripts/vitest.config.js']
+    projects: ['app/vitest.config.js', 'scripts/vitest.config.js'],
+    pool: 'forks'
   }
 })

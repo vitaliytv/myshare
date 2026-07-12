@@ -3,6 +3,9 @@ import { fetch } from '@tauri-apps/plugin-http'
 // Витягує текст <title>. Повертає trimmed string або '' якщо нема.
 // @param {Document} doc
 // @returns {string}
+/**
+ *
+ */
 export function extractTitle(doc) {
   return doc.querySelector('title')?.textContent?.trim() ?? ''
 }
@@ -13,6 +16,9 @@ export function extractTitle(doc) {
 // @param {Document} doc
 // @param {string} token — точний rel-токен (case-insensitive), напр. 'icon'.
 // @returns {Element|null}
+/**
+ *
+ */
 export function findLinkByRel(doc, token) {
   const target = token.toLowerCase()
   for (const link of doc.querySelectorAll('link[rel][href]')) {
@@ -28,6 +34,9 @@ export function findLinkByRel(doc, token) {
 // @param {Document} doc
 // @param {string} baseUrl — URL сторінки (після redirects), для resolve відносних посилань.
 // @returns {string}
+/**
+ *
+ */
 export function extractFaviconUrl(doc, baseUrl) {
   // Пріоритет: explicit icon (включає <link rel="shortcut icon">, бо там є
   // токен `icon`) → apple-touch-icon → precomposed → fallback /favicon.ico.
@@ -46,6 +55,9 @@ export function extractFaviconUrl(doc, baseUrl) {
 // @param {string} href
 // @param {string} base
 // @returns {string}
+/**
+ *
+ */
 export function resolveUrl(href, base) {
   try {
     return new URL(href, base).toString()
@@ -58,6 +70,9 @@ export function resolveUrl(href, base) {
 // і в happy-dom (test env), тому модуль однаково testable.
 // @param {string} html
 // @returns {Document}
+/**
+ *
+ */
 export function parseHtml(html) {
   return new DOMParser().parseFromString(html, 'text/html')
 }
@@ -67,6 +82,9 @@ export function parseHtml(html) {
 // Повертає {title, favicon}; помилки кидаються до caller'а (Vue catch + show).
 // @param {string} url
 // @returns {Promise<{title: string, favicon: string}>}
+/**
+ *
+ */
 export async function fetchPageMeta(url) {
   // 10s timeout — share-флоу інтерактивний, далі чекати безглуздо.
   const response = await fetch(url, {

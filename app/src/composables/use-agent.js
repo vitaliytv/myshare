@@ -20,6 +20,6 @@ export function useAgent() {
     catalog: TOOLS,
     systemPrompt: createSystemPrompt(),
     transport: runTransport,
-    omlx: { storagePrefix: 'myshare' },
+    omlx: { storagePrefix: 'myshare' }
   })
 }

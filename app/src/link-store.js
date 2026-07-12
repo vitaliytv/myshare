@@ -18,8 +18,7 @@ async function opfsRoot() {
   try {
     const storage = globalThis.navigator?.storage
     return storage?.getDirectory ? await storage.getDirectory() : null
-  }
-  catch {
+  } catch {
     return null
   }
 }
@@ -35,8 +34,7 @@ async function readLinks() {
     const text = await (await handle.getFile()).text()
     const parsed = JSON.parse(text)
     return Array.isArray(parsed) ? parsed.filter(u => typeof u === 'string' && u) : []
-  }
-  catch {
+  } catch {
     return [] // missing file or unreadable → empty
   }
 }

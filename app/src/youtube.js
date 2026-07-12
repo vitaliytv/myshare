@@ -10,6 +10,9 @@ import { invoke } from '@tauri-apps/api/core'
 // Чиста функція над URL-рядком. Caller вирішує, чи це YouTube.
 // @param {string} url
 // @returns {string} videoId або ''
+/**
+ *
+ */
 export function extractYoutubeVideoId(url) {
   let u
   try {
@@ -33,6 +36,9 @@ export function extractYoutubeVideoId(url) {
   return ''
 }
 
+/**
+ *
+ */
 function validateVideoId(id) {
   return /^[\w-]{11}$/.test(id) ? id : ''
 }
@@ -47,6 +53,9 @@ function validateVideoId(id) {
 // @param {string} videoId
 // @param {Array<string>} preferred
 // @returns {Promise<{languageCode: string, text: string, availableLangs: string[]}>}
+/**
+ *
+ */
 export async function getYoutubeTranscript(videoId, preferred = ['uk', 'en']) {
   if (!validateVideoId(videoId)) {
     throw new Error('invalid YouTube video id')
@@ -61,6 +70,9 @@ export async function getYoutubeTranscript(videoId, preferred = ['uk', 'en']) {
 //
 // @param {string} videoId
 // @returns {Promise<string[]>} напр. ['uk', 'en', 'de']
+/**
+ *
+ */
 export async function getYoutubeLanguages(videoId) {
   if (!validateVideoId(videoId)) {
     throw new Error('invalid YouTube video id')

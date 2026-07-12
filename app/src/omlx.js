@@ -18,6 +18,9 @@ export const DEFAULT_MODEL = 'gemma-4-e4b-it-OptiQ-4bit'
 // нього — кешований probe myllm-проксі (:8088), інакше прямий :8000.
 // @param {string} [base]
 // @returns {Promise<string>}
+/**
+ *
+ */
 async function resolveBase(base) {
   return base ?? (await resolveOmlxBaseUrlCached({ directUrl: OMLX_BASE_URL, fetchFn: fetch }))
 }
@@ -28,6 +31,9 @@ async function resolveBase(base) {
 // @param {string} text
 // @param {number} maxChars
 // @returns {string[]} непорожні чанки
+/**
+ *
+ */
 export function chunkText(text, maxChars = 3500) {
   const normalized = String(text ?? '').trim()
   if (!normalized) return []
@@ -77,6 +83,9 @@ export function chunkText(text, maxChars = 3500) {
 // Будує chat-повідомлення для перекладу одного чанка. Чиста функція.
 // @param {string} chunk
 // @returns {Array<{role: string, content: string}>}
+/**
+ *
+ */
 export function buildMessages(chunk) {
   return [
     {
@@ -93,6 +102,9 @@ export function buildMessages(chunk) {
 // Чиста функція.
 // @param {unknown} json
 // @returns {string}
+/**
+ *
+ */
 export function extractContent(json) {
   const content = json?.choices?.[0]?.message?.content
   return typeof content === 'string' ? content : ''
@@ -100,18 +112,22 @@ export function extractContent(json) {
 
 // Список завантажених моделей omlx (GET /v1/models).
 // @returns {Promise<string[]>}
+/**
+ *
+ */
 export async function listOmlxModels(base, signal) {
   const resolvedBase = await resolveBase(base)
   const response = await fetch(`${resolvedBase}/models`, { method: 'GET', signal })
   if (!response.ok) throw new Error(`omlx HTTP ${response.status}`)
   const json = await response.json()
-  return Array.isArray(json?.data)
-    ? json.data.map((m) => m?.id).filter((id) => typeof id === 'string')
-    : []
+  return Array.isArray(json?.data) ? json.data.map(m => m?.id).filter(id => typeof id === 'string') : []
 }
 
 // Обирає модель: preferred, якщо завантажена; інакше першу наявну.
 // @returns {Promise<string>}
+/**
+ *
+ */
 export async function resolveModel(base, preferred = DEFAULT_MODEL, signal) {
   const resolvedBase = await resolveBase(base)
   const models = await listOmlxModels(resolvedBase, signal)
@@ -122,6 +138,9 @@ export async function resolveModel(base, preferred = DEFAULT_MODEL, signal) {
 // Перекладає один чанк (POST /v1/chat/completions, OpenAI-compatible).
 // @param {string} chunk
 // @returns {Promise<string>} переклад
+/**
+ *
+ */
 export async function translateChunk(chunk, { model = DEFAULT_MODEL, base, apiKey, signal } = {}) {
   const resolvedBase = await resolveBase(base)
   const response = await fetch(`${resolvedBase}/chat/completions`, {
@@ -150,6 +169,9 @@ export async function translateChunk(chunk, { model = DEFAULT_MODEL, base, apiKe
 // @param {string} text
 // @param {{model?: string, base?: string, apiKey?: string, onProgress?: (done: number, total: number) => void, signal?: AbortSignal}} opts
 // @returns {Promise<{model: string, segments: Array<{original: string, translated: string}>, text: string}>}
+/**
+ *
+ */
 export async function translateToUkrainian(text, { model, base, apiKey, onProgress, signal } = {}) {
   // Резолвимо base один раз нагорі: довгий переклад не повинен фліпати ціль
   // посеред роботи, коли TTL probe-кешу спливе.
@@ -162,5 +184,5 @@ export async function translateToUkrainian(text, { model, base, apiKey, onProgre
     segments.push({ original: chunks[i], translated })
     onProgress?.(i + 1, chunks.length)
   }
-  return { model: chosenModel, segments, text: segments.map((s) => s.translated).join('\n\n') }
+  return { model: chosenModel, segments, text: segments.map(s => s.translated).join('\n\n') }
 }

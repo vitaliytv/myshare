@@ -9,16 +9,22 @@ export const STORAGE_KEY = 'myshare.captionLangs'
 //
 // @param {string[]} langs доступні мови субтитрів (напр. ['uk','en','de'])
 // @returns {{ kind: 'uk'|'en'|'none', hasUk: boolean, hasEn: boolean, langs: string[] }}
+/**
+ *
+ */
 export function captionStatus(langs) {
-  const list = Array.isArray(langs) ? langs.map((l) => String(l).toLowerCase()) : []
-  const hasUk = list.some((l) => l === 'uk' || l.startsWith('uk-'))
-  const hasEn = list.some((l) => l === 'en' || l.startsWith('en-'))
+  const list = Array.isArray(langs) ? langs.map(l => String(l).toLowerCase()) : []
+  const hasUk = list.some(l => l === 'uk' || l.startsWith('uk-'))
+  const hasEn = list.some(l => l === 'en' || l.startsWith('en-'))
   const kind = hasUk ? 'uk' : hasEn ? 'en' : 'none'
   return { kind, hasUk, hasEn, langs: list }
 }
 
 // Читає кеш мов (map videoId → string[]) з localStorage. На будь-яку
 // неконсистентність повертає порожній обʼєкт.
+/**
+ *
+ */
 export function loadLangsCache(storage) {
   if (!storage || typeof storage.getItem !== 'function') return {}
 
@@ -36,7 +42,7 @@ export function loadLangsCache(storage) {
 
   const out = {}
   for (const [videoId, langs] of Object.entries(parsed)) {
-    if (Array.isArray(langs) && langs.every((l) => typeof l === 'string')) {
+    if (Array.isArray(langs) && langs.every(l => typeof l === 'string')) {
       out[videoId] = langs
     }
   }
@@ -44,6 +50,9 @@ export function loadLangsCache(storage) {
 }
 
 // Зберігає весь map videoId → string[] у localStorage.
+/**
+ *
+ */
 export function saveLangsCache(storage, cache) {
   if (!storage || typeof storage.setItem !== 'function') return
 

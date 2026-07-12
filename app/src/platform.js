@@ -9,11 +9,17 @@
 //
 // @param {string} ua
 // @returns {boolean}
+/**
+ *
+ */
 export function isAndroidUserAgent(ua) {
   return typeof ua === 'string' && /Android/i.test(ua)
 }
 
 // @returns {boolean} true якщо запущено на Android.
+/**
+ *
+ */
 export function isAndroidPlatform() {
   return isAndroidUserAgent(typeof navigator === 'undefined' ? '' : navigator.userAgent)
 }
