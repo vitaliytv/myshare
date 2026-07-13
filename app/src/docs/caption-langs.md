@@ -3,9 +3,8 @@ type: JS Module
 title: caption-langs.js
 resource: app/src/caption-langs.js
 docgen:
-  crc: 1b6d990b
+  crc: 33f83426
   model: omlx/gemma-4-e4b-it-OptiQ-4bit
-  tier: local-min-retry
   score: 100
   issues: judge:inaccurate:0.99
   judgeModel: openai-codex/gpt-5.4-mini

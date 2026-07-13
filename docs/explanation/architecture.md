@@ -39,19 +39,26 @@ C4Container
   title Container Diagram — myshare
   Person(user, "Користувач")
   System_Ext(android, "Android OS")
+  System_Ext(ory, "Ory (Kratos+Hydra)", "Спільний auth-стек nitra — OAuth2/PKCE login")
   Container_Boundary(myshare, "myshare") {
-    Container(frontend, "Frontend", "Vue 3 + Quasar + Vite", "UI, історія URL")
-    Container(native, "Native Shell", "Rust + Tauri 2", "Прийом share intent, мост до UI")
-    ContainerDb(storage, "Local Storage", "Web localStorage", "Історія прийнятих URL")
+    Container(frontend, "Frontend", "Vue 3 + Quasar + Vite", "UI, посилання, sync-клієнт")
+    Container(native, "Native Shell", "Rust + Tauri 2", "Прийом share intent, deep-link OAuth callback, мост до UI")
+    ContainerDb(storage, "OPFS / localStorage", "Web Storage", "Посилання, кеш перекладів, sync-сесія")
+  }
+  Container_Boundary(relayBoundary, "self-hosted relay (окремий деплой)") {
+    Container(relay, "myshare-relay", "Bun + sqlite", "Journal посилань/перекладів, JWT-верифікація")
   }
   Rel(user, android, "Share URL")
   Rel(android, native, "text/plain intent")
   Rel(native, frontend, "Tauri event з URL")
-  Rel(frontend, storage, "Записує та читає історію URL")
+  Rel(frontend, storage, "Записує та читає посилання/переклади/sync-сесію")
+  Rel(frontend, ory, "OAuth2 Authorization Code + PKCE (системний браузер)")
+  Rel(frontend, relay, "WS (desktop) / HTTP push-pull (Android), Bearer JWT")
+  Rel(relay, ory, "Верифікує JWT проти Hydra JWKS")
   Rel(frontend, user, "Показує список URL")
 ```
 
-??? engineer "Розташування коду застосунку `myshare` у репозиторії" - `app/` — frontend (Vue 3 + Quasar + Vite) і `app/src-tauri/` (Rust + Tauri 2 mobile). - `app/src/shared-url.js` — чистий витяг URL із тексту share intent. - `app/src/url-history.js` — load/save/append для історії URL у `localStorage` під ключем `myshare.sharedUrls`. - `app/src/page-meta.js` — фетч `{title, favicon}` цільової сторінки через `@tauri-apps/plugin-http`; деталі — [components/page-meta](./components/page-meta.md). - `app/src/youtube.js` — детекція YouTube URL, фетч caption tracks, вибір uk→en та XML→plain text для перегляду субтитрів; деталі — [components/youtube](./components/youtube.md). - `app/src/platform.js` — UA-based детекція Android для умовного рендеру dev-helper'а; деталі — [components/platform](./components/platform.md). - `app/src-tauri/gen/android/app/src/main/java/com/vitaliytv/myshare/MainActivity.kt` — Kotlin-перехоплювач `ACTION_SEND` intent із вкиданням URL у WebView через `evaluateJavascript` (localStorage + CustomEvent). - `scripts/` — допоміжні node-скрипти, зокрема `docs-regen`. - `docs/` — джерело істини архітектурної документації `myshare` (arc42 + ADR + проекції).
+??? engineer "Розташування коду застосунку `myshare` у репозиторії" - `app/` — frontend (Vue 3 + Quasar + Vite) і `app/src-tauri/` (Rust + Tauri 2 mobile). - `app/src/shared-url.js` — чистий витяг URL із тексту share intent. - `app/src/link-store.js` — OPFS-сховище посилань (`links.json`, `{version, linksSeq, items}`), tombstone-видалення; деталі — [components/link-store](./components/link-store.md). - `app/src/translation-cache.js` — кеш перекладів субтитрів у localStorage з tombstone/timestamp для sync. - `app/src/sync/` — sync-клієнт (`client.js`), Ory PKCE-логін (`auth.js`), device-id і session-сховище; деталі — [components/sync-client](./components/sync-client.md). - `app/src/components/SyncSettings.vue` — діалог налаштувань синхронізації. - `relay/` — self-hosted relay-сервер (Bun + sqlite): journal посилань/перекладів, JWT-верифікація проти Ory Hydra JWKS, без власного register/login. - `app/src/page-meta.js` — фетч `{title, favicon}` цільової сторінки через `@tauri-apps/plugin-http`; деталі — [components/page-meta](./components/page-meta.md). - `app/src/youtube.js` — детекція YouTube URL, фетч caption tracks, вибір uk→en та XML→plain text для перегляду субтитрів; деталі — [components/youtube](./components/youtube.md). - `app/src/platform.js` — UA-based детекція Android для умовного рендеру dev-helper'а; деталі — [components/platform](./components/platform.md). - `app/src-tauri/gen/android/app/src/main/java/com/vitaliytv/myshare/MainActivity.kt` — Kotlin-перехоплювач `ACTION_SEND` intent із вкиданням URL у WebView через `evaluateJavascript` (localStorage + CustomEvent). - `scripts/` — допоміжні node-скрипти, зокрема `docs-regen`. - `docs/` — джерело істини архітектурної документації `myshare` (arc42 + ADR + проекції).
 
 ## 6. Runtime View
 
@@ -65,6 +72,16 @@ C4Container
 6. Для нового URL Frontend `myshare` асинхронно фетчить **Page Metadata** (`{title, favicon}`); якщо URL — YouTube, додатково фетчить **Caption Tracks** і вибирає трек за пріоритетом `uk → en` (manual вище за auto).
 7. Frontend `myshare` відображає актуальну історію URL на екрані; на старті застосунку історія читається з Local Storage, після чого для кожного URL запускаються кроки п.6.
 8. Тап кнопки субтитрів на YouTube-картці завантажує **Timedtext XML** через `Caption Track.baseUrl` і показує транскрипт у діалозі.
+9. Якщо є активна sync-сесія (Ory-логін виконано): нове/видалене посилання чи новий переклад одразу пушиться в `myshare-relay` (WS на desktop, HTTP на Android); вхідні мутації з relay застосовуються назад у `link-store.js`/`translation-cache.js` і UI перечитує список через подію `myshare:sync-updated`.
+
+### 6.1. Sync і Ory-логін
+
+1. Користувач відкриває діалог **Синхронізація** (`SyncSettings.vue`), вводить relay URL і Ory issuer, тисне «Увійти через Ory».
+2. Frontend резолвить endpoints через OIDC discovery (`<issuer>/.well-known/openid-configuration`), генерує PKCE `code_verifier`/`code_challenge` і відкриває системний браузер (`tauri-plugin-opener`) на Hydra `authorization_endpoint`.
+3. Користувач логіниться в Ory (Kratos email-code) і підтверджує consent; Hydra редіректить на `myshare://oauth/callback?code=...` — Tauri `deep-link`-плагін ловить це на desktop і Android.
+4. Frontend обмінює `code`+`code_verifier` на `access_token`/`refresh_token`/`id_token` (`tokenEndpoint`), зберігає сесію в OPFS (`sync/session-store.js`).
+5. Desktop тримає persistent WebSocket до relay (`GET /sync/ws`, hello з JWT+курсорами seq, push+pull в обидва боки, reconnect із backoff). Android робить HTTP push одразу при мутації і HTTP pull при переході застосунку у видимий стан.
+6. `myshare-relay` верифікує кожен запит/WS-hello проти Hydra JWKS (`<issuer>/.well-known/jwks.json`), зберігає мутації в append-only journal (`link_journal`/`translation_journal`, `seq` per user) з tombstone-записами для видалень.
 
 ## 7. Deployment View
 
@@ -74,7 +91,9 @@ C4Container
 
 Розділ заповнюватиметься в міру появи accepted ADR `myshare` за темами: безпека обробки URL, локалізація UI, логування, обробка помилок share intent.
 
-**Локальне сховище.** Frontend `myshare` зберігає історію прийнятих URL у Web `localStorage` під ключем `myshare.sharedUrls` — JSON-масив рядків, найсвіжіший URL першим. Це єдине місце персистентності `myshare` поза runtime; native-частина застосунку нічого окремо не персистить. Опис модуля — [components/url-history](./components/url-history.md).
+**Локальне сховище.** Frontend `myshare` зберігає посилання в OPFS (`app/src/link-store.js`, файл `links.json`, `{version, linksSeq, items:[{id,url,createdAt,deleted}]}`) — не в `localStorage`, як було до 19 червня 2026 (`url-history.js` тоді замінено на `link-store.js`, без окремого ADR; ця архітектурна довідка того часу виправлена заднім числом разом із sync-фічею — [ADR relay-sync-cherez-ory-oauth2-pkce](../adr/relay-sync-cherez-ory-oauth2-pkce.md)). Кеш перекладів субтитрів лишається в `localStorage['myshare.translations']`. Native-частина застосунку нічого окремо не персистить. Опис модуля — [components/link-store](./components/link-store.md).
+
+**Desktop↔Android sync через self-hosted relay + Ory.** Посилання й кеш перекладів синхронізуються між пристроями через `relay/` (self-hosted Bun-сервіс, journal з append-only merge за server-assigned `seq` + tombstones для видалень) — деталі рішення й альтернативи в [ADR relay-sync-cherez-ory-oauth2-pkce](../adr/relay-sync-cherez-ory-oauth2-pkce.md). Авторизація — Ory Hydra OAuth2 Authorization Code + PKCE (спільний auth-стек nitra, `/Users/vitalii/www/nitra/ory`), той самий JWT для Android, macOS і relay; relay не має власного register/login, лише верифікує JWT проти Hydra JWKS. Android-таргет 16+ означає обов'язковий TLS для relay (cleartext HTTP заблоковано за замовчуванням). Опис клієнтського sync-модуля — [components/sync-client](./components/sync-client.md).
 
 **Cross-origin HTTP.** WebView-CORS блокує fetch до зовнішніх сайтів із origin `http://localhost:1420` (dev) або `tauri://localhost` (prod). Frontend `myshare` для favicon/title (`page-meta`) використовує `@tauri-apps/plugin-http`, який проксує fetch через Rust і CORS-policy WebView не торкається. Дозволені цілі — capability `http:default` із `http://**` + `https://**` у `app/src-tauri/capabilities/default.json`.
 

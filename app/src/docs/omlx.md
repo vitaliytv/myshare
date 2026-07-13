@@ -3,9 +3,8 @@ type: JS Module
 title: omlx.js
 resource: app/src/omlx.js
 docgen:
-  crc: 1cb3839f
+  crc: e0ee3bcf
   model: openai-codex/gpt-5.4
-  tier: cloud-avg
   score: 100
   issues: judge:inaccurate:0.98
   judgeModel: openai-codex/gpt-5.4-mini

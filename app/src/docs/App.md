@@ -3,9 +3,8 @@ type: Vue Component
 title: App.vue
 resource: app/src/App.vue
 docgen:
-  crc: 2e96591a
+  crc: 5c17b2c0
   model: omlx/gemma-4-e4b-it-OptiQ-4bit
-  tier: local-min
 ---
 
 Компонент `App.vue` є головним інтерфейсом застосунку MyShare, що приймає посилання через механізм Android Share. Він керує відображенням історії прийнятих посилань та надає інструменти для роботи з ними, зокрема отримання субтитрів та переклад.

@@ -19,6 +19,7 @@
           style="min-width: 170px; font-size: 0.8rem" />
         <q-btn @click="agentOpen = true" flat dense no-caps icon="sym_o_smart_toy" label="Агент" />
         <q-btn @click="auditOpen = true" flat dense round icon="sym_o_history" title="Журнал запитів" />
+        <q-btn @click="syncOpen = true" flat dense round icon="sym_o_sync" title="Синхронізація" />
       </q-toolbar>
     </q-header>
 
@@ -27,6 +28,7 @@
       :agent="agent"
       prompt-hint="наприклад: отримай субтитри відео youtube.com/watch?v=… і перекладиукраїнською" />
     <AuditDialog v-model="auditOpen" :agent="agent" />
+    <SyncSettings v-model="syncOpen" />
     <q-page-container>
       <q-page class="column items-center q-pa-lg">
         <q-card class="share-card" flat bordered>
@@ -161,6 +163,15 @@
                         : 'Перекласти англійські субтитри українською (omlx)'
                     " />
                 </q-item-section>
+                <q-item-section side>
+                  <q-btn
+                    @click="handleRemoveLink(url)"
+                    flat
+                    dense
+                    round
+                    icon="sym_o_delete"
+                    title="Видалити посилання" />
+                </q-item-section>
               </q-item>
             </q-list>
           </q-card-section>
@@ -240,7 +251,7 @@ import { getVersion } from '@tauri-apps/api/app'
 import { AgentDialog, AuditDialog } from '@7n/tauri-components/components'
 import { useUpdater } from '@7n/tauri-components/vue'
 import { consumePendingSharedText, extractSharedUrl } from './shared-url.js'
-import { addLink, listLinks } from './link-store.js'
+import { addLink, listLinkRecords, listLinks, removeLink } from './link-store.js'
 import { useAgent } from './composables/use-agent.js'
 import { isAndroidPlatform } from './platform.js'
 import { extractYoutubeVideoId } from './youtube.js'
@@ -248,6 +259,16 @@ import { captionStatus, loadLangsCache, saveLangsCache } from './caption-langs.j
 import { listOmlxModels, DEFAULT_MODEL } from './omlx.js'
 import { loadTranslations, saveTranslations } from './translation-cache.js'
 import { loadModelPref, saveModelPref } from './model-pref.js'
+import SyncSettings from './components/SyncSettings.vue'
+import {
+  pullOnce,
+  pushLinkMutation,
+  pushTranslationMutation,
+  startSync,
+  stopSync,
+  SYNC_UPDATED_EVENT
+} from './sync/client.js'
+import { loadSession } from './sync/session-store.js'
 // Бекенд-дії йдуть через єдиний tool-surface (n-tool-surface): той самий
 // `dispatch`, що його використовує LLM-агент. UI лише розпаковує конверт
 // {ok, output|error}. extractYoutubeVideoId лишається прямим — це чистий
@@ -270,6 +291,7 @@ const agent = useAgent()
 useUpdater()
 const agentOpen = ref(false)
 const auditOpen = ref(false)
+const syncOpen = ref(false)
 // reactive map url → { title, favicon, loading, error }
 const metaByUrl = ref({})
 // reactive map url → { videoId, langsLoading, langsError, status } для YouTube
@@ -372,6 +394,33 @@ async function handleAndroidShare(event) {
   urlHistory.value = await addLink(url)
   ensureMeta(url)
   ensureYoutube(url)
+
+  const records = await listLinkRecords()
+  const record = records.find(r => r.url === url)
+  if (record) pushLinkMutation(record)
+}
+
+/**
+ * Tombstone a link and push the deletion to the relay so other devices merge it.
+ * @param {string} url the link to remove
+ */
+async function handleRemoveLink(url) {
+  const before = await listLinkRecords()
+  const record = before.find(r => r.url === url)
+  urlHistory.value = await removeLink(url)
+  if (record) pushLinkMutation({ id: record.id, url: null, deleted: true, createdAt: record.createdAt })
+}
+
+/**
+ * Refresh from local storage after the sync client folds in remote mutations.
+ */
+async function handleSyncUpdated() {
+  urlHistory.value = await listLinks()
+  for (const url of urlHistory.value) {
+    ensureMeta(url)
+    ensureYoutube(url)
+  }
+  translations.value = loadTranslations(globalThis.localStorage)
 }
 
 /**
@@ -479,6 +528,7 @@ async function openTranslateDialog(url) {
     const entry = { model: res.output.model, originalLang: 'en', segments: res.output.segments }
     translations.value = { ...translations.value, [videoId]: entry }
     saveTranslations(globalThis.localStorage, translations.value)
+    pushTranslationMutation({ videoId, entry, deleted: false })
     translateDialog.value = { ...translateDialog.value, loading: false, progress: null, segments: res.output.segments }
   } else {
     translateDialog.value = { ...translateDialog.value, loading: false, progress: null, error: res.error.message }
@@ -496,7 +546,15 @@ onMounted(async () => {
     ensureYoutube(url)
   }
   globalThis.addEventListener('myshare:android-share', handleAndroidShare)
+  globalThis.addEventListener(SYNC_UPDATED_EVENT, handleSyncUpdated)
   consumePendingAndroidShare()
+
+  const session = await loadSession()
+  if (session?.accessToken) {
+    if (isAndroidPlatform()) await pullOnce()
+    else await startSync()
+  }
+
   if (canTranslate) {
     const saved = loadModelPref(globalThis.localStorage)
     try {
@@ -514,6 +572,8 @@ onMounted(async () => {
 
 onUnmounted(() => {
   globalThis.removeEventListener('myshare:android-share', handleAndroidShare)
+  globalThis.removeEventListener(SYNC_UPDATED_EVENT, handleSyncUpdated)
+  stopSync()
 })
 </script>
 
@@ -551,7 +611,7 @@ onUnmounted(() => {
 
 .caption-text {
   white-space: pre-wrap;
-  word-break: break-word;
+  overflow-wrap: anywhere;
   font-family: inherit;
   font-size: 0.95rem;
   line-height: 1.45;
@@ -589,7 +649,7 @@ onUnmounted(() => {
   font-size: 0.92rem;
   line-height: 1.5;
   white-space: pre-wrap;
-  word-break: break-word;
+  overflow-wrap: anywhere;
   border-bottom: 1px solid rgb(0 0 0 / 6%);
 }
 

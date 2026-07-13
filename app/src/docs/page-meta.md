@@ -3,9 +3,8 @@ type: JS Module
 title: page-meta.js
 resource: app/src/page-meta.js
 docgen:
-  crc: a65406ac
+  crc: c53a57cb
   model: openai-codex/gpt-5.4
-  tier: cloud-avg
   score: 100
   issues: judge:inaccurate:0.98
   judgeModel: openai-codex/gpt-5.4-mini

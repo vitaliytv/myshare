@@ -9,7 +9,11 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@nitra/check-env": "^4.2.1",
     "jose": "^5.9.6"
+  },
+  "devDependencies": {
+    "vitest": "^4.0.0"
   },
   "engines": {
     "bun": ">=1.3",

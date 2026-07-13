@@ -2,10 +2,10 @@ import { tableSpec } from './db.js'
 
 /**
  * Append one journal entry for a user's mutation (an add or a tombstone).
- * @param {import('bun:sqlite').Database} db
- * @param {'links'|'translations'} table
+ * @param {import('bun:sqlite').Database} db the open relay database
+ * @param {'links'|'translations'} table which journal to append to
  * @param {string} userId Ory identity id (JWT `sub`)
- * @param {{id: string, value: unknown, deleted?: boolean, createdAt?: number}} item
+ * @param {{id: string, value: unknown, deleted?: boolean, createdAt?: number}} item the mutation to record
  * @param {string} deviceId originating device, for echo-suppression by callers
  * @returns {number} assigned seq
  */
@@ -23,11 +23,11 @@ export function applyPush(db, table, userId, item, deviceId) {
 
 /**
  * Fetch journal rows for a user newer than `since`, ascending by seq.
- * @param {import('bun:sqlite').Database} db
- * @param {'links'|'translations'} table
- * @param {string} userId
- * @param {number} since
- * @returns {Array<{seq: number, id: string, value: unknown, deleted: boolean, deviceId: string, createdAt: number}>}
+ * @param {import('bun:sqlite').Database} db the open relay database
+ * @param {'links'|'translations'} table which journal to read from
+ * @param {string} userId Ory identity id (JWT `sub`)
+ * @param {number} since only return rows with seq greater than this
+ * @returns {Array<{seq: number, id: string, value: unknown, deleted: boolean, deviceId: string, createdAt: number}>} matching journal rows
  */
 export function pullSince(db, table, userId, since) {
   const { table: tableName, idCol, valueCol } = tableSpec(table)

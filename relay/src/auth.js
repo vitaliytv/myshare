@@ -5,6 +5,10 @@ import { createRemoteJWKSet, jwtVerify } from 'jose'
 let jwks = null
 let jwksIssuer = null
 
+/**
+ * @param {string} issuer the Hydra issuer whose JWKS to fetch/cache
+ * @returns {import('jose').JWTVerifyGetKey} a cached remote JWKS resolver for `issuer`
+ */
 function getJwks(issuer) {
   if (!jwks || jwksIssuer !== issuer) {
     jwks = createRemoteJWKSet(new URL(`${issuer}/.well-known/jwks.json`))
@@ -20,7 +24,7 @@ function getJwks(issuer) {
  *   `jwks` is an injectable key resolver (e.g. `jose.createLocalJWKSet`) for tests;
  *   production callers omit it and get the cached remote Hydra JWKS.
  * @returns {Promise<{userId: string}>} resolves with the Ory identity id (JWT `sub`)
- * @throws if the token is missing, expired, or fails issuer/audience checks
+ * @throws {Error} if the token is missing, expired, or fails issuer/audience checks
  */
 export async function verifyAccessToken(token, { issuer, clientId, jwks: injectedJwks }) {
   if (!token) throw new Error('missing bearer token')
@@ -34,6 +38,7 @@ export async function verifyAccessToken(token, { issuer, clientId, jwks: injecte
 
 /**
  * Test seam: reset the cached JWKS so a fresh issuer/keyset takes effect.
+ * @returns {void}
  */
 export function _resetForTest() {
   jwks = null

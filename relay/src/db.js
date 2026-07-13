@@ -1,4 +1,23 @@
-import { Database } from 'bun:sqlite'
+// `bun:sqlite` only exists under the Bun runtime that actually runs this
+// server in production. Vitest (even invoked via `bun x vitest`) executes
+// test files in a plain Node worker, so a static top-level `import 'bun:sqlite'`
+// would break every test file that merely imports this module. Resolve the
+// sqlite implementation lazily and pick Node's built-in `node:sqlite`
+// (near-identical sync API: exec/prepare/run/all) when Bun isn't present.
+let DatabaseCtor = null
+
+/**
+ * @returns {Promise<new (path: string) => object>} the sqlite `Database`/`DatabaseSync` constructor for the current runtime
+ */
+async function resolveDatabaseCtor() {
+  if (DatabaseCtor) return DatabaseCtor
+  if (typeof Bun === 'undefined') {
+    ;({ DatabaseSync: DatabaseCtor } = await import('node:sqlite'))
+  } else {
+    ;({ Database: DatabaseCtor } = await import('bun:sqlite'))
+  }
+  return DatabaseCtor
+}
 
 const SCHEMA = `
 CREATE TABLE IF NOT EXISTS link_journal (
@@ -27,10 +46,11 @@ CREATE INDEX IF NOT EXISTS idx_translation_journal_user_seq ON translation_journ
 /**
  * Open (and migrate) the relay's sqlite database.
  * @param {string} path file path, or `:memory:` for tests
- * @returns {Database}
+ * @returns {Promise<import('bun:sqlite').Database>} the open, migrated database handle
  */
-export function openDb(path) {
-  const db = new Database(path)
+export async function openDb(path) {
+  const Ctor = await resolveDatabaseCtor()
+  const db = new Ctor(path)
   db.exec('PRAGMA journal_mode = WAL;')
   db.exec(SCHEMA)
   return db
@@ -42,8 +62,8 @@ const TABLES = {
 }
 
 /**
- * @param {'links'|'translations'} table
- * @returns {{table: string, idCol: string, valueCol: string}}
+ * @param {'links'|'translations'} table which journal to resolve column names for
+ * @returns {{table: string, idCol: string, valueCol: string}} table/column names for that journal
  */
 export function tableSpec(table) {
   const spec = TABLES[table]

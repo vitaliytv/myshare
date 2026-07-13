@@ -3,9 +3,8 @@ type: JS Module
 title: model-pref.js
 resource: app/src/model-pref.js
 docgen:
-  crc: b82a044f
+  crc: d5d375f1
   model: openai-codex/gpt-5.4
-  tier: cloud-avg
   score: 100
   judgeModel: openai-codex/gpt-5.4-mini
 ---

@@ -2,9 +2,19 @@ import { verifyAccessToken } from './auth.js'
 import { applyPush, pullSince } from './sync.js'
 
 /**
- * @param {import('bun:sqlite').Database} db
- * @param {{issuer: string, clientId: string}} authConfig
- * @returns {{fetch: (req: Request, server: import('bun').Server) => Promise<Response>, websocket: import('bun').WebSocketHandler}}
+ * @param {Request} req the incoming HTTP request
+ * @returns {string|null} the bearer token from the Authorization header, or null if absent/malformed
+ */
+function bearerToken(req) {
+  const header = req.headers.get('authorization') ?? ''
+  const [scheme, token] = header.split(' ')
+  return scheme === 'Bearer' ? token : null
+}
+
+/**
+ * @param {import('bun:sqlite').Database} db the open relay database
+ * @param {{issuer: string, clientId: string}} authConfig Hydra issuer + client id for JWT verification
+ * @returns {{fetch: (req: Request, server: import('bun').Server) => Promise<Response>, websocket: import('bun').WebSocketHandler}} the Bun.serve handlers
  */
 export function createRouter(db, authConfig) {
   /** @type {Map<string, Set<import('bun').ServerWebSocket>>} */
@@ -17,12 +27,6 @@ export function createRouter(db, authConfig) {
     for (const ws of sockets) {
       if (ws !== fromWs) ws.send(payload)
     }
-  }
-
-  function bearerToken(req) {
-    const header = req.headers.get('authorization') ?? ''
-    const [scheme, token] = header.split(' ')
-    return scheme === 'Bearer' ? token : null
   }
 
   async function handlePush(req, table) {
@@ -47,6 +51,8 @@ export function createRouter(db, authConfig) {
 
   async function fetchHandler(req, server) {
     const url = new URL(req.url)
+
+    if (req.method === 'GET' && url.pathname === '/health') return new Response('ok')
 
     if (url.pathname === '/sync/ws') {
       const upgraded = server.upgrade(req, { data: { userId: null, deviceId: null } })

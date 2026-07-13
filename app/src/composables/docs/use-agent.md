@@ -3,9 +3,8 @@ type: JS Module
 title: use-agent.js
 resource: app/src/composables/use-agent.js
 docgen:
-  crc: 449076ce
+  crc: df1da0db
   model: openai-codex/gpt-5.4-mini
-  tier: cloud-min
   score: 100
   issues: judge:inaccurate:0.97
   judgeModel: openai-codex/gpt-5.4-mini
