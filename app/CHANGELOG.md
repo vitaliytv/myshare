@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.4.0] - 2026-07-13
+
+### Added
+
+- Desktop↔Android sync посилань і кешу перекладів через self-hosted relay, авторизація через Ory Hydra OAuth2/PKCE (`app/src/sync/`, `app/src/components/SyncSettings.vue`, `tauri-plugin-deep-link`). `link-store.js`/`translation-cache.js` отримали id/timestamp/tombstone для append-only merge; додано видалення посилань.
+
 ## [0.3.1] - 2026-07-12
 
 ### Changed

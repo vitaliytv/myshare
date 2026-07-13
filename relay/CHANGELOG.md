@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.2.0] - 2026-07-13
+
+### Added
+
+- Новий пакет: self-hosted sync-relay для myshare (Bun + sqlite journal, WS+HTTP push/pull посилань і перекладів, JWT-верифікація проти Ory Hydra JWKS — без власного register/login).
+
 All notable changes to this project will be documented in this file.
 
 The format is decided by [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
