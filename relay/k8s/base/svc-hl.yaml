@@ -1,0 +1,21 @@
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: relay
+    app.kubernetes.io/name: relay
+    app.kubernetes.io/component: sync-coordinator
+    app.kubernetes.io/part-of: myshare
+  name: relay-hl
+  namespace: myshare-dev
+spec:
+  clusterIP: None
+  ports:
+    - name: http
+      port: 8787
+      protocol: TCP
+      targetPort: http
+      appProtocol: http
+  selector:
+    app: relay
+  type: ClusterIP

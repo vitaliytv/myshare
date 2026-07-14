@@ -1,0 +1,49 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: myshare
+
+resources:
+  - ../base
+
+images:
+  - name: us-central1-docker.pkg.dev/nitraai/c/dev/relay
+    newName: us-central1-docker.pkg.dev/nitraai/c/main/relay
+    newTag: latest
+
+patches:
+  # Namespace object itself has no `metadata.namespace` (namespaces aren't
+  # namespaced), so the top-level `namespace:` transformer above does NOT
+  # rename it — patch its literal name explicitly instead.
+  - target:
+      kind: Namespace
+      name: myshare-dev
+    patch: |-
+      - op: replace
+        path: /metadata/name
+        value: myshare
+  - target:
+      kind: Deployment
+      name: relay
+    patch: |-
+      - op: replace
+        path: /spec/template/spec/nodeSelector
+        value:
+          preem: "false"
+      - op: replace
+        path: /spec/template/spec/containers/0/env/2/value
+        value: https://id.7n.ai/oauth2
+  - target:
+      kind: PersistentVolumeClaim
+      name: relay-db
+    patch: |-
+      - op: replace
+        path: /spec/resources/requests/storage
+        value: 5Gi
+  - target:
+      kind: HTTPRoute
+      name: relay
+    patch: |-
+      - op: replace
+        path: /spec/hostnames/0
+        value: 7n.ai

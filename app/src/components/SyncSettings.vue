@@ -44,8 +44,11 @@ import { clearSession, loadSession } from '../sync/session-store.js'
 defineProps({ modelValue: Boolean })
 defineEmits(['update:modelValue'])
 
-const relayUrl = ref('')
-const oryIssuer = ref('')
+// Defaults point at the live nitra dev deployment (relay/README.md) so testing
+// doesn't require knowing/typing these by hand; still user-editable for a
+// self-hosted relay or a different Ory instance.
+const relayUrl = ref('https://nitra.dev/relay-myshare')
+const oryIssuer = ref('https://id.nitra.dev/oauth2')
 const clientId = ref('myshare')
 const loggedIn = ref(false)
 const loggingIn = ref(false)

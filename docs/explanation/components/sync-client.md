@@ -23,9 +23,11 @@
 - Relay **має** бути за TLS — Android 16+ блокує cleartext HTTP/WS за замовчуванням, без винятків у конфігурації.
 - Реєстрація Hydra OAuth2-клієнта `myshare` (public, PKCE, `redirect_uri: myshare://oauth/callback`) — одноразовий ручний ops-крок проти `/Users/vitalii/www/nitra/ory`, не автоматизований; команда — `relay/README.md`.
 - Дублікати посилань можливі при offline-редагуванні на двох пристроях до першого sync (журнал мержить за `id`, не за `url`) — задокументоване обмеження, не помилка.
+- `tauri-plugin-deep-link`'s `tauri.conf.json` схема має дві **незалежні** секції — `plugins.deep-link.desktop.schemes` (macOS/Windows/Linux custom URL scheme) і `plugins.deep-link.mobile` (масив `{scheme: [...]}`/`{host, ...}` — саме звідси генерується Android `<intent-filter>` в `AndroidManifest.xml`). Задання лише `desktop.schemes` компілюється без помилок, але залишає Android-маніфест без `intent-filter` для `myshare://` — виявлено лише реальною Android-збіркою (`bun run tauri android build`), не видно з `cargo check`. Обидві секції потрібні одночасно.
 
 ## Тести
 
 - `app/src/sync/device-id.test.js`, `session-store.test.js`, `auth.test.js`, `client.test.js` — vitest, мокнуті `@tauri-apps/plugin-opener`/`plugin-deep-link`, `fetch`, `WebSocket`.
 - `relay/src/{db,sync,auth}.test.js` — journal push/pull/tombstone/ізоляція між користувачами, JWT-верифікація проти локального JWKS.
-- Не покрито в цьому середовищі: реальний two-device sync на фізичному Android, реальний Ory login-flow із живим deep-link callback, реконект при справжніх мережевих обривах.
+- `cargo check`/`cargo clippy`/`cargo fmt --check` у `app/src-tauri` та реальна Android debug-збірка (`bun run tauri android build --apk --debug --target aarch64`) — перевірено, компілюється чисто, `AndroidManifest.xml` містить коректний `<intent-filter>` з `<data android:scheme="myshare" />`.
+- Не покрито в цьому середовищі: реальний two-device sync на фізичному Android/desktop-вікні, реальний Ory login-flow із живим deep-link callback (потребує GUI/пристрою), реконект при справжніх мережевих обривах.

@@ -3,7 +3,7 @@ type: JS Module
 title: auth.js
 resource: app/src/sync/auth.js
 docgen:
-  crc: 36544e2f
+  crc: 0a9e9b8c
   model: openai-codex/gpt-5.4-mini
   score: 50
   issues: no-overview,short-behavior,anchor-miss:response.json,best-of-2:retry-lost

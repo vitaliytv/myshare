@@ -11,3 +11,11 @@ app/src-tauri/capabilities/
 docs/ci4/manifest.json
 .claude/settings.local.json
 .claude/launch.json
+relay/k8s/base/deployment.yaml
+relay/k8s/base/hc.yaml
+relay/k8s/base/hr.yaml
+relay/k8s/base/namespace.yaml
+relay/k8s/base/networkpolicy.yaml
+relay/k8s/base/pvc.yaml
+relay/k8s/base/service.yaml
+relay/k8s/base/svc-hl.yaml

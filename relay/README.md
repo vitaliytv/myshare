@@ -62,11 +62,80 @@ a device at it.
 
 ## Endpoints
 
+- `GET /health` — plain `200 ok`, no auth. Used by k8s liveness/readiness probes and the GKE `HealthCheckPolicy`.
 - `POST /sync/links/push`, `GET /sync/links/pull?since=<seq>`
 - `POST /sync/translations/push`, `GET /sync/translations/pull?since=<seq>`
 - `GET /sync/ws` (upgrade) — first client frame must be `{type: 'hello', token, deviceId, linksSince, translationsSince}`
 
-All HTTP endpoints require `Authorization: Bearer <hydra access token>`.
+All endpoints except `/health` require `Authorization: Bearer <hydra access token>`.
+
+## Kubernetes deployment (kustomize)
+
+`k8s/base` and `k8s/main` mirror the base/main overlay pattern used across `/Users/vitalii/www/nitra/ory`
+(same shared GKE cluster `nitraai`, context `ai`, same shared Gateway `gw` in namespace `default`):
+
+- **`k8s/base`** → namespace `myshare-dev`, image `.../c/dev/relay:latest`, `HYDRA_ISSUER=https://id.nitra.dev/oauth2`,
+  `https://nitra.dev/relay-myshare/*`, 1Gi PVC, `nodeSelector.preem: "true"` (preemptible node pool).
+- **`k8s/main`** → namespace `myshare`, image `.../c/main/relay:latest`, `HYDRA_ISSUER=https://id.7n.ai/oauth2`,
+  `https://7n.ai/relay-myshare/*`, 5Gi PVC, `nodeSelector.preem: "false"`.
+
+Routed as a **path prefix under the existing bare `nitra.dev`/`7n.ai` hostnames** (both already resolve to
+the shared Gateway — same address as `id.nitra.dev`), not a dedicated `relay.nitra.dev` subdomain — no new
+DNS record needed. `nitra.dev`/`7n.ai` are also claimed by unrelated `gt-dev`/`gt-main` HTTPRoutes
+(`gt-site`, `hasura`, …) with a catch-all `/` `PathPrefix` — Gateway API resolves overlapping routes on the
+same hostname by longest-path-prefix precedence, so `/relay-myshare` always wins over their `/` for its own
+paths, with a `URLRewrite`/`ReplacePrefixMatch` filter stripping the prefix before it reaches the relay
+(the relay's own routes are `/health`, `/sync/...`, unprefixed).
+
+Resources per overlay: `Namespace`, `PersistentVolumeClaim` (sqlite db file — single `ReadWriteOnce` volume,
+`Deployment.strategy: Recreate` so the old pod releases the volume before the new one binds it; **no sqlite/local-disk
+precedent existed elsewhere in `ory`'s manifests**, everything else there is CNPG/Postgres), `Deployment`, `Service` +
+headless `Service` (`relay-hl`, used by the `HealthCheckPolicy` and `HTTPRoute` backends), `HealthCheckPolicy`
+(`networking.gke.io/v1`), `NetworkPolicy` (same three GCP Gateway ingress CIDRs `35.191.0.0/16`/`130.211.0.0/22`/`10.10.0.0/23`
+as `ory`'s services, plus `0.0.0.0/0:443` egress since `HYDRA_ISSUER`'s JWKS is fetched over the public internet, not
+in-cluster), `HTTPRoute` (`gateway.networking.k8s.io/v1beta1`, attaches to the same shared `gw` Gateway `ory` uses).
+
+Validate before applying:
+
+```sh
+kubectl kustomize relay/k8s/base   # or k8s/main
+```
+
+**Before the first `kubectl apply -k relay/k8s/main`** (prod overlay only — dev needs nothing extra since
+`nitra.dev` and its Hydra client are already live), one thing needs to exist that this repo can't provision
+on its own: **a separate Hydra OAuth2 client registration against the prod Ory instance** (`https://id.7n.ai`)
+— the `myshare` client documented above was only registered against the dev instance (`id.nitra.dev`).
+
+There is **no CI/CD pipeline wired up** for this — `kubectl apply -k relay/k8s/<overlay>` and image
+rollout (`kubectl set image deployment/relay main=<image>`) are manual steps, deliberately: automating
+`kubectl apply` against a shared cluster on every push is a separate decision the deployer should make
+explicitly (network policies and routes affect shared infrastructure), not something bundled silently
+with these manifests.
+
+### Verified live in `myshare-dev` (2026-07-13)
+
+Built the image (`docker buildx build --platform linux/amd64 -f relay/Dockerfile --push .` — **must**
+target `linux/amd64` explicitly; a plain `docker build` on Apple Silicon produces an arm64 image that
+fails to pull on the cluster's `n2d` (x86_64) nodes with `no match for platform in manifest`), pushed to
+`us-central1-docker.pkg.dev/nitraai/c/dev/relay:latest`, applied `k8s/base`, rolled out. Pod reaches
+`Running`/`Ready`. `HTTPRoute` shows `Accepted`+`Reconciled` against the shared Gateway, and — since
+`nitra.dev` already has a public DNS record — the live path route works end-to-end with **no DNS step at
+all**: `curl https://nitra.dev/relay-myshare/health` → `200`, unauthenticated
+`POST https://nitra.dev/relay-myshare/sync/links/push` → `401`.
+
+Fixed three bugs found only by actually deploying (not visible from `kubectl kustomize` alone):
+
+- **`Dockerfile`**: `bun install --filter relay` matched *zero* workspace members (bun's `--filter`
+  matches by `package.json` `name`, and this package is named `myshare-relay`, not `relay`) — install
+  silently no-op'd, shipping an image with an empty `node_modules`. Fixed to `--filter ./relay`
+  (path-based filter, always correct regardless of package name).
+- **`deployment.yaml`**: first rollout crash-looped with `SQLiteError: unable to open database file` —
+  the GCE-PD-backed PVC mounts `root:root 0755` by default, and the non-root container (`runAsUser:
+  1000`) couldn't create the sqlite file under `/data`. Fixed by adding `securityContext.fsGroup: 1000`
+  at the pod level, which makes kubelet `chown` the mounted volume to that group on attach.
+- **`hr.yaml`**: originally used a dedicated `relay.nitra.dev` subdomain, which needed a new DNS record
+  this repo can't provision. Switched to a `/relay-myshare` path prefix under the already-resolving bare
+  `nitra.dev`/`7n.ai` hostnames (with a `URLRewrite` filter to strip the prefix) — zero new DNS.
 
 ## Client (Tauri) login flow
 

@@ -26,23 +26,23 @@ pub fn run() {
     let builder = builder.plugin(tauri_plugin_mcp_bridge::init());
 
     builder
-        .setup(|app| {
-            // Версія застосунку в заголовку вікна, щоб її було видно без About-діалогу
+        .setup(|_app| {
+            // Версія застосунку в заголовку вікна, щоб її було видно без About-діалогу.
+            // Both `#[cfg(desktop)]` blocks below are compiled out entirely on Android,
+            // leaving the closure param genuinely unused there — hence `_app`.
             #[cfg(desktop)]
-            if let Some(window) = tauri::Manager::get_webview_window(app, "main") {
-                let _ = window.set_title(&format!("myshare v{}", app.package_info().version));
+            if let Some(window) = tauri::Manager::get_webview_window(_app, "main") {
+                let _ = window.set_title(&format!("myshare v{}", _app.package_info().version));
             }
 
             // Dev-mode desktop builds aren't OS-registered as the `myshare://` handler
             // via bundling (that only happens for packaged installers) — register the
             // scheme explicitly so `myshare://oauth/callback` reaches this app during
-            // `bun run start`. Verify this call against the installed
-            // tauri-plugin-deep-link version before relying on it — its dev-registration
-            // API has changed across releases.
+            // `bun run start`. Confirmed against tauri-plugin-deep-link 2.4.9 (cargo check).
             #[cfg(desktop)]
             {
                 use tauri_plugin_deep_link::DeepLinkExt;
-                let _ = app.deep_link().register("myshare");
+                let _ = _app.deep_link().register("myshare");
             }
 
             Ok(())

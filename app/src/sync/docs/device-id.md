@@ -3,7 +3,7 @@ type: JS Module
 title: device-id.js
 resource: app/src/sync/device-id.js
 docgen:
-  crc: 20f738e2
+  crc: d97124b1
   model: openai-codex/gpt-5.4-mini
   score: 50
   issues: no-overview,short-behavior,anchor-miss:device.json,best-of-2:retry-lost

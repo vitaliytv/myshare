@@ -3,7 +3,7 @@ type: JS Module
 title: link-store.js
 resource: app/src/link-store.js
 docgen:
-  crc: 0e6967ba
+  crc: 73b4ce7e
   model: openai-codex/gpt-5.4-mini
   score: 100
   issues: judge:inaccurate:0.98

@@ -1,0 +1,28 @@
+# Path-prefix route under the existing `nitra.dev` hostname (already resolves
+# to the shared Gateway — same IP as id.nitra.dev) instead of a dedicated
+# `relay.nitra.dev` subdomain, so no new DNS record is needed. `nitra.dev` is
+# also claimed by unrelated `gt-dev` HTTPRoutes (gt-site, hasura, ...) with a
+# catch-all `/` PathPrefix — Gateway API resolves this by longest-path-prefix
+# precedence, so `/relay-myshare` always wins over their `/` for its own paths.
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: HTTPRoute
+metadata:
+  name: relay
+  namespace: myshare-dev
+spec:
+  parentRefs:
+    - sectionName: https
+      name: gw
+      namespace: default
+  hostnames:
+    - nitra.dev
+  rules:
+    - matches:
+        - path: { type: PathPrefix, value: /relay-myshare }
+      filters:
+        - type: URLRewrite
+          urlRewrite:
+            path: { type: ReplacePrefixMatch, replacePrefixMatch: / }
+      backendRefs:
+        - name: relay-hl
+          port: 8787

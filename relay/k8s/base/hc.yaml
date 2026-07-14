@@ -1,0 +1,16 @@
+apiVersion: networking.gke.io/v1
+kind: HealthCheckPolicy
+metadata:
+  name: relay
+  namespace: myshare-dev
+spec:
+  default:
+    config:
+      httpHealthCheck:
+        port: 8787
+        requestPath: /health
+      type: HTTP
+  targetRef:
+    group: ''
+    kind: Service
+    name: relay-hl

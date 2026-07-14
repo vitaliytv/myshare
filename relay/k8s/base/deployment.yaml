@@ -1,0 +1,98 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: relay
+  namespace: myshare-dev # буде замінено через kustomize
+  labels:
+    app: relay
+    app.kubernetes.io/name: relay
+    app.kubernetes.io/component: sync-coordinator
+    app.kubernetes.io/part-of: myshare
+spec:
+  replicas: 1
+  # sqlite is single-writer — RollingUpdate would briefly try to schedule two
+  # pods against the same ReadWriteOnce PVC. Recreate tears the old pod down
+  # (and releases the volume) before starting the new one.
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: relay
+  template:
+    metadata:
+      labels:
+        app: relay
+        app.kubernetes.io/name: relay
+        app.kubernetes.io/component: sync-coordinator
+        app.kubernetes.io/part-of: myshare
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        # GCE PD-backed PVCs mount root:root 0755 by default — fsGroup makes
+        # kubelet chown the volume to this group so the non-root container
+        # can create/write the sqlite file under /data.
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: main
+          image: us-central1-docker.pkg.dev/nitraai/c/dev/relay:latest
+          imagePullPolicy: Always
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+          ports:
+            - name: http
+              containerPort: 8787
+          env:
+            - name: PORT
+              value: '8787'
+            - name: RELAY_DB_PATH
+              value: /data/relay.sqlite
+            # host-specific (патчиться в main на https://id.7n.ai/oauth2) — той
+            # самий Hydra-клієнт myshare зареєстровано лише проти dev-issuer,
+            # для main треба окрема реєстрація проти прод-Ory (див. README).
+            - name: HYDRA_ISSUER
+              value: https://id.nitra.dev/oauth2
+            - name: MYSHARE_CLIENT_ID
+              value: myshare
+          volumeMounts:
+            - name: db
+              mountPath: /data
+          resources:
+            requests:
+              cpu: '0.02'
+              memory: '64Mi'
+            limits:
+              cpu: '0.3'
+              memory: '256Mi'
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 2
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 2
+            periodSeconds: 10
+      volumes:
+        - name: db
+          persistentVolumeClaim:
+            claimName: relay-db
+      nodeSelector:
+        preem: 'true'
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              app: relay

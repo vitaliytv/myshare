@@ -1,0 +1,15 @@
+# No sqlite/local-disk precedent exists elsewhere in the org's k8s manifests
+# (kratos/hydra both use CNPG/Postgres) — this is the first plain PVC. Single
+# ReadWriteOnce volume matches relay's single-replica, single-writer sqlite file.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: relay-db
+  namespace: myshare-dev
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: standard-rwo
+  resources:
+    requests:
+      storage: 1Gi

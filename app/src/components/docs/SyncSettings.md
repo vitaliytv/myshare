@@ -3,7 +3,7 @@ type: Vue Component
 title: SyncSettings.vue
 resource: app/src/components/SyncSettings.vue
 docgen:
-  crc: 37b43b85
+  crc: a88fae68
   model: omlx/gemma-4-e4b-it-OptiQ-4bit
 ---
 

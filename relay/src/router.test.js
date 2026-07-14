@@ -12,14 +12,14 @@ beforeEach(async () => {
 
 describe('GET /health', () => {
   it('responds 200 without requiring auth', async () => {
-    const response = await fetchHandler(new Request('http://relay.test/health'), {})
+    const response = await fetchHandler(new Request('https://relay.test/health'), {})
     expect(response.status).toBe(200)
   })
 })
 
 describe('unknown routes', () => {
   it('responds 404', async () => {
-    const response = await fetchHandler(new Request('http://relay.test/nope'), {})
+    const response = await fetchHandler(new Request('https://relay.test/nope'), {})
     expect(response.status).toBe(404)
   })
 })
@@ -27,7 +27,7 @@ describe('unknown routes', () => {
 describe('auth-gated routes', () => {
   it('responds 401 without a bearer token', async () => {
     const response = await fetchHandler(
-      new Request('http://relay.test/sync/links/push', {
+      new Request('https://relay.test/sync/links/push', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ items: [], deviceId: 'd1' })
