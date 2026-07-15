@@ -10,5 +10,6 @@ resources:
   - hc.yaml
   - hr.yaml
   - networkpolicy.yaml
+  - configmap.yaml
   - service.yaml
   - svc-hl.yaml

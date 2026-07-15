@@ -1,7 +1,8 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/yannh/kubernetes-json-schema/master/v1.33.9-standalone-strict/networkpolicy-networking-v1.json
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
-metadata:
+  metadata:
+    namespace: myshare-dev
   name: relay
   annotations:
     nitra.dev/workload-kind: Deployment

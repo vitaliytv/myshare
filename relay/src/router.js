@@ -20,6 +20,9 @@ export function createRouter(db, authConfig) {
   /** @type {Map<string, Set<import('bun').ServerWebSocket>>} */
   const liveSockets = new Map()
 
+  /**
+   *
+   */
   function broadcast(userId, fromWs, message) {
     const sockets = liveSockets.get(userId)
     if (!sockets) return
@@ -29,6 +32,9 @@ export function createRouter(db, authConfig) {
     }
   }
 
+  /**
+   *
+   */
   async function handlePush(req, table) {
     const { userId } = await verifyAccessToken(bearerToken(req), authConfig)
     const body = await req.json()
@@ -41,6 +47,9 @@ export function createRouter(db, authConfig) {
     return Response.json({ seq: latestSeq })
   }
 
+  /**
+   *
+   */
   async function handlePull(req, table, url) {
     const { userId } = await verifyAccessToken(bearerToken(req), authConfig)
     const since = Number(url.searchParams.get('since') ?? '0')
@@ -49,6 +58,9 @@ export function createRouter(db, authConfig) {
     return Response.json({ items, latestSeq })
   }
 
+  /**
+   *
+   */
   async function fetchHandler(req, server) {
     const url = new URL(req.url)
 

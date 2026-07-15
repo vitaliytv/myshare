@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: relay
+  namespace: myshare-dev # буде замінено через kustomize
+data:
+  OTEL_RESOURCE_ATTRIBUTES: 'service.name=,service.namespace='
