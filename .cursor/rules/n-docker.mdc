@@ -1,0 +1,29 @@
+---
+description: Dockerfile — lint-docker / hadolint; перевірка check-docker
+version: '1.12'
+globs: "**/Dockerfile*"
+alwaysApply: false
+---
+
+# Docker — hadolint
+
+Правило перевіряє Dockerfile / Containerfile: GCR-дзеркало замість Docker Hub, multistage build з дозволеними runtime-образами, компіляцію bun-проєктів у бінарник, виняток для нативних `.node`-аддонів, non-root у фінальному stage, nginx-специфічні вимоги та hadolint CI-workflow.
+
+## Активація
+
+Спрацьовує на всі файли `Dockerfile*`; `check docker` (`fix.mjs`) обробляє також `Containerfile` та `Containerfile.*`.
+
+## Перевірка `.github/workflows/lint-docker.yml`
+
+Rego-пакет: `docker.lint_docker_yml`
+
+Цільовий файл: `.github/workflows/lint-docker.yml`
+
+Перевіряє, що CI-workflow lint-docker відповідає канонічному сніпету:
+
+- `on.push.paths` містить усі три glob-маски: `**/Dockerfile`, `**/*.Dockerfile`, `**/*.dockerfile`
+- присутні кроки `uses: actions/checkout@v6` та `uses: ./.github/actions/setup-bun-deps`
+- крок install hadolint містить рядок із версією `v2.12.0` (substring-перевірка)
+- крок lint містить `n-rules lint docker --no-fix`
+
+Канонічний шаблон: [lint-docker.yml.snippet.yml](./template/lint-docker.yml.snippet.yml)
