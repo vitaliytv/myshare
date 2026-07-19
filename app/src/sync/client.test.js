@@ -149,7 +149,7 @@ describe('bootstrapIfNeeded', () => {
 describe('startSync', () => {
   it('is a no-op on Android (no WebSocket, no bootstrap)', async () => {
     isAndroidPlatform.mockReturnValue(true)
-    const OriginalWebSocket = globalThis.WebSocket
+    const OriginalWebSocket = WebSocket
     const wsSpy = vi.fn()
     vi.stubGlobal('WebSocket', wsSpy)
 

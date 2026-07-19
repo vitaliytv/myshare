@@ -3,9 +3,8 @@ type: JS Module
 title: index.js
 resource: app/src/tool/index.js
 docgen:
-  crc: 553d0369
+  crc: e9d5368b
   model: openai-codex/gpt-5.4-mini
-  tier: cloud-min
   score: 55
   issues: no-overview,short-behavior,best-of-2:retry-lost
 ---

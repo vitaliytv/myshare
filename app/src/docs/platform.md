@@ -3,9 +3,8 @@ type: JS Module
 title: platform.js
 resource: app/src/platform.js
 docgen:
-  crc: 2569c692
+  crc: f723acd4
   model: openai-codex/gpt-5.4-mini
-  tier: cloud-min
   score: 100
 ---
 

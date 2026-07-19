@@ -12,16 +12,19 @@ function bearerToken(req) {
 }
 
 /**
- * @param {import('bun:sqlite').Database} db the open relay database
+ * @param {object} db the open relay database
  * @param {{issuer: string, clientId: string}} authConfig Hydra issuer + client id for JWT verification
- * @returns {{fetch: (req: Request, server: import('bun').Server) => Promise<Response>, websocket: import('bun').WebSocketHandler}} the Bun.serve handlers
+ * @returns {object} the Bun.serve handlers
  */
 export function createRouter(db, authConfig) {
-  /** @type {Map<string, Set<import('bun').ServerWebSocket>>} */
+  /** @type {Map<string, Set<object>>} */
   const liveSockets = new Map()
 
   /**
-   *
+   * @param {string} userId the recipient user ID
+   * @param {object|null} fromWs the socket that initiated the message, if any
+   * @param {object} message the synchronization message to send
+   * @returns {void} nothing
    */
   function broadcast(userId, fromWs, message) {
     const sockets = liveSockets.get(userId)
@@ -33,7 +36,9 @@ export function createRouter(db, authConfig) {
   }
 
   /**
-   *
+   * @param {Request} req the incoming HTTP request
+   * @param {string} table the synchronization table name
+   * @returns {Promise<Response>} the latest sequence response
    */
   async function handlePush(req, table) {
     const { userId } = await verifyAccessToken(bearerToken(req), authConfig)
@@ -48,7 +53,10 @@ export function createRouter(db, authConfig) {
   }
 
   /**
-   *
+   * @param {Request} req the incoming HTTP request
+   * @param {string} table the synchronization table name
+   * @param {URL} url the parsed request URL
+   * @returns {Promise<Response>} the synchronization items response
    */
   async function handlePull(req, table, url) {
     const { userId } = await verifyAccessToken(bearerToken(req), authConfig)
@@ -59,7 +67,9 @@ export function createRouter(db, authConfig) {
   }
 
   /**
-   *
+   * @param {Request} req the incoming HTTP request
+   * @param {object} server the Bun server handling the request
+   * @returns {Promise<Response|undefined>} the route response or an upgraded connection
    */
   async function fetchHandler(req, server) {
     const url = new URL(req.url)

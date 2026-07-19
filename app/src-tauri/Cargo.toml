@@ -23,9 +23,11 @@ tauri-plugin-opener = "2"
 # tauri-plugin-http лишився для page-meta (фронтенд робить favicon/title fetch).
 # unsafe-headers дозволяє Referer/Origin із JS.
 tauri-plugin-http = { version = "2", features = ["unsafe-headers"] }
-# Shared agent journal + omlx config commands (plugin:agent|*) — same crate the
-# task/mlmail apps use, so the journal/omlx backend isn't copied per app.
-tauri-plugin-agent = { git = "https://github.com/nitra/tauri-components" }
+# Shared agent journal + ACP-client commands (plugin:agent|*) — same crate the
+# task/mlmail/mikrotik apps use, so the journal/ACP backend isn't copied per
+# app. Pinned to a specific rev (not floating) so a future push to the
+# package repo can't silently change this app's Rust surface underneath it.
+tauri-plugin-agent = { git = "https://github.com/nitra/tauri-components", rev = "73442a5e511eb591b9eeaad98818424bee82e508" }
 # OAuth2/PKCE login callback (myshare://oauth/callback) for the sync relay's Ory login.
 tauri-plugin-deep-link = "2"
 serde = { version = "1", features = ["derive"] }

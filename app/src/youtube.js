@@ -1,17 +1,14 @@
 import { invoke } from '@tauri-apps/api/core'
 
-// Витягує YouTube video ID із URL. Підтримує:
-//   - https://www.youtube.com/watch?v=ID&...
-//   - https://youtu.be/ID
-//   - https://www.youtube.com/shorts/ID
-//   - https://www.youtube.com/embed/ID
-//   - https://m.youtube.com/... (мобільний)
-//   - https://youtube-nocookie.com/embed/ID
-// Чиста функція над URL-рядком. Caller вирішує, чи це YouTube.
-// @param {string} url
-// @returns {string} videoId або ''
+const YOUTUBE_HOST_PREFIX_PATTERN = /^www\.|^m\./
+const YOUTUBE_PATH_PATTERN = /^\/(shorts|embed|v|live)\/([^/?#]+)/
+const YOUTUBE_VIDEO_ID_PATTERN = /^[\w-]{11}$/
+
 /**
- *
+ * Витягує YouTube video ID із URL. Підтримує стандартні, короткі, вбудовані,
+ * мобільні та privacy-enhanced посилання.
+ * @param {string} url URL-рядок для обробки.
+ * @returns {string} Video ID або порожній рядок.
  */
 export function extractYoutubeVideoId(url) {
   let u
@@ -20,15 +17,15 @@ export function extractYoutubeVideoId(url) {
   } catch {
     return ''
   }
-  const host = u.hostname.toLowerCase().replace(/^www\.|^m\./, '')
+  const host = u.hostname.toLowerCase().replace(YOUTUBE_HOST_PREFIX_PATTERN, '')
   if (host === 'youtu.be') {
-    return validateVideoId(u.pathname.slice(1).split('/')[0])
+    return validateVideoId(u.pathname.slice(1).split('/', 1)[0])
   }
   if (host === 'youtube.com' || host === 'youtube-nocookie.com') {
     if (u.pathname === '/watch') {
       return validateVideoId(u.searchParams.get('v') ?? '')
     }
-    const prefixMatch = u.pathname.match(/^\/(shorts|embed|v|live)\/([^/?#]+)/)
+    const prefixMatch = u.pathname.match(YOUTUBE_PATH_PATTERN)
     if (prefixMatch) {
       return validateVideoId(prefixMatch[2])
     }
@@ -37,45 +34,38 @@ export function extractYoutubeVideoId(url) {
 }
 
 /**
- *
+ * Перевіряє формат YouTube video ID.
+ * @param {string} id Ідентифікатор для перевірки.
+ * @returns {string} Валідний ID або порожній рядок.
  */
 function validateVideoId(id) {
-  return /^[\w-]{11}$/.test(id) ? id : ''
+  return YOUTUBE_VIDEO_ID_PATTERN.test(id) ? id : ''
 }
 
-// Запитує транскрипт через Rust-команду `yt_get_transcript`, яка ходить у
-// supadata.ai (потребує SUPADATA_API_KEY у `app/src-tauri/.env`). Пробує
-// мови у порядку `preferred` (перша наявна перемагає).
-//
-// Повертає `{ languageCode, text, availableLangs }`. На помилку (немає ключа,
-// мова відсутня, мережева) — Rust віддає рядок-помилку, який caller catch'ає.
-//
-// @param {string} videoId
-// @param {Array<string>} preferred
-// @returns {Promise<{languageCode: string, text: string, availableLangs: string[]}>}
 /**
- *
+ * Запитує транскрипт через Rust-команду `yt_get_transcript` у supadata.ai.
+ * Повертає мову, текст і доступні мови; помилки Rust caller обробляє окремо.
+ * @param {string} videoId YouTube video ID.
+ * @param {string[]} preferred Мови в порядку пріоритету.
+ * @returns {Promise<{languageCode: string, text: string, availableLangs: string[]}>} Транскрипт і доступні мови.
  */
 export async function getYoutubeTranscript(videoId, preferred = ['uk', 'en']) {
   if (!validateVideoId(videoId)) {
     throw new Error('invalid YouTube video id')
   }
-  return invoke('yt_get_transcript', { videoId, preferred })
+  const transcript = await invoke('yt_get_transcript', { videoId, preferred })
+  return transcript
 }
 
-// Запитує список мов субтитрів, доступних для відео (Rust-команда
-// `yt_list_languages`, один виклик supadata без витягування всього тексту).
-// Дозволяє показати по кожному лінку статус наявності субтитрів. Порожній
-// масив = у відео взагалі немає субтитрів.
-//
-// @param {string} videoId
-// @returns {Promise<string[]>} напр. ['uk', 'en', 'de']
 /**
- *
+ * Запитує список мов субтитрів, доступних для відео, через `yt_list_languages`.
+ * @param {string} videoId YouTube video ID.
+ * @returns {Promise<string[]>} Коди доступних мов субтитрів.
  */
 export async function getYoutubeLanguages(videoId) {
   if (!validateVideoId(videoId)) {
     throw new Error('invalid YouTube video id')
   }
-  return invoke('yt_list_languages', { videoId })
+  const languages = await invoke('yt_list_languages', { videoId })
+  return languages
 }

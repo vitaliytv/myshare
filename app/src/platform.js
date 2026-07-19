@@ -1,3 +1,5 @@
+const androidUserAgentPattern = /Android/i
+
 // Визначає, чи WebView (або браузер) працює на Android.
 // Чиста функція — приймає UA-рядок, повертає bool. Тестується без mocking
 // global navigator. Користувач у Vue читає `isAndroidPlatform()` без параметра —
@@ -7,18 +9,18 @@
 // WebView). На macOS dev-вікні Tauri використовує WKWebView — там "Macintosh"
 // + "Mac OS X". Тож достатньо substring-check.
 //
-// @param {string} ua
-// @returns {boolean}
 /**
- *
+ * Перевіряє, чи належить User-Agent Android.
+ * @param {string} ua User-Agent-рядок для перевірки.
+ * @returns {boolean} `true`, якщо User-Agent позначає Android.
  */
 export function isAndroidUserAgent(ua) {
-  return typeof ua === 'string' && /Android/i.test(ua)
+  return typeof ua === 'string' && androidUserAgentPattern.test(ua)
 }
 
-// @returns {boolean} true якщо запущено на Android.
 /**
- *
+ * Визначає, чи застосунок запущений на Android.
+ * @returns {boolean} `true`, якщо застосунок запущено на Android.
  */
 export function isAndroidPlatform() {
   return isAndroidUserAgent(typeof navigator === 'undefined' ? '' : navigator.userAgent)

@@ -10,7 +10,7 @@ test('extractSharedUrl accepts http:// scheme', () => {
 })
 
 test('extractSharedUrl returns first URL from shared text', () => {
-  expect(extractSharedUrl('Подивись https://example.com/page?x=1 далі http://example.org')).toBe(
+  expect(extractSharedUrl('Подивись https://example.com/page?x=1 далі https://example.org')).toBe(
     'https://example.com/page?x=1'
   )
 })

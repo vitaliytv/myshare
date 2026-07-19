@@ -1,41 +1,40 @@
 import { fetch } from '@tauri-apps/plugin-http'
 
-// Витягує текст <title>. Повертає trimmed string або '' якщо нема.
-// @param {Document} doc
-// @returns {string}
+const REL_TOKEN_SEPARATOR = /\s+/
+
 /**
- *
+ * Витягує текст <title>. Повертає trimmed string або '' якщо нема.
+ * @param {Document} doc - Документ для пошуку title.
+ * @returns {string} Текст title або порожній рядок.
  */
 export function extractTitle(doc) {
   return doc.querySelector('title')?.textContent?.trim() ?? ''
 }
 
-// Шукає <link> елементу серед `<head>`, де rel-атрибут містить заданий
-// space-separated токен. Не покладається на CSS [rel~="..."] — happy-dom
-// (test env) парсить його не так, як справжній браузер, тому робимо явний check.
-// @param {Document} doc
-// @param {string} token — точний rel-токен (case-insensitive), напр. 'icon'.
-// @returns {Element|null}
 /**
- *
+ * Шукає <link> елементу серед `<head>`, де rel-атрибут містить заданий
+ * space-separated токен. Не покладається на CSS [rel~="..."] — happy-dom
+ * (test env) парсить його не так, як справжній браузер, тому робимо явний check.
+ * @param {Document} doc - Документ для пошуку link.
+ * @param {string} token - Точний rel-токен (case-insensitive), напр. 'icon'.
+ * @returns {Element|null} Відповідний link або null.
  */
 export function findLinkByRel(doc, token) {
   const target = token.toLowerCase()
   for (const link of doc.querySelectorAll('link[rel][href]')) {
-    const tokens = (link.getAttribute('rel') ?? '').toLowerCase().split(/\s+/)
+    const tokens = (link.getAttribute('rel') ?? '').toLowerCase().split(REL_TOKEN_SEPARATOR)
     if (tokens.includes(target)) return link
   }
   return null
 }
 
-// Шукає favicon у <head> у порядку пріоритету. Якщо нічого не знайшли —
-// fallback на /favicon.ico відносно origin'у сторінки (правило де-факто з HTML4).
-// Повертає **абсолютний** URL (через URL constructor relativу до baseUrl) або ''.
-// @param {Document} doc
-// @param {string} baseUrl — URL сторінки (після redirects), для resolve відносних посилань.
-// @returns {string}
 /**
- *
+ * Шукає favicon у <head> у порядку пріоритету. Якщо нічого не знайшли —
+ * fallback на /favicon.ico відносно origin'у сторінки (правило де-факто з HTML4).
+ * Повертає **абсолютний** URL (через URL constructor relativу до baseUrl) або ''.
+ * @param {Document} doc - Документ для пошуку favicon.
+ * @param {string} baseUrl - URL сторінки після redirects для resolve відносних посилань.
+ * @returns {string} Абсолютний URL favicon або порожній рядок.
  */
 export function extractFaviconUrl(doc, baseUrl) {
   // Пріоритет: explicit icon (включає <link rel="shortcut icon">, бо там є
@@ -50,40 +49,37 @@ export function extractFaviconUrl(doc, baseUrl) {
   return resolveUrl('/favicon.ico', baseUrl)
 }
 
-// URL constructor: якщо href абсолютний — повертає його; якщо відносний — приєднує до base.
-// Будь-яка помилка (некоректний URL) → '' (щоб UI не зламався).
-// @param {string} href
-// @param {string} base
-// @returns {string}
 /**
- *
+ * URL constructor: якщо href абсолютний — повертає його; якщо відносний — приєднує до base.
+ * Будь-яка помилка (некоректний URL) → '' (щоб UI не зламався).
+ * @param {string} href - Абсолютний або відносний URL.
+ * @param {string} base - Базовий URL для відносного href.
+ * @returns {string} Абсолютний URL або порожній рядок при помилці.
  */
 export function resolveUrl(href, base) {
   try {
-    return new URL(href, base).toString()
+    return new URL(href, base).href
   } catch {
     return ''
   }
 }
 
-// Парсить HTML-рядок у Document через DOMParser. DOMParser є і в WebView,
-// і в happy-dom (test env), тому модуль однаково testable.
-// @param {string} html
-// @returns {Document}
 /**
- *
+ * Парсить HTML-рядок у Document через DOMParser. DOMParser є і в WebView,
+ * і в happy-dom (test env), тому модуль однаково testable.
+ * @param {string} html - HTML-рядок для парсингу.
+ * @returns {Document} Розпарсений HTML-документ.
  */
 export function parseHtml(html) {
   return new DOMParser().parseFromString(html, 'text/html')
 }
 
-// Дістає {title, favicon} для URL. Використовує tauri-plugin-http (Rust-проксі,
-// без CORS), бо WebView fetch до зовнішніх доменів блокується browser-policy.
-// Повертає {title, favicon}; помилки кидаються до caller'а (Vue catch + show).
-// @param {string} url
-// @returns {Promise<{title: string, favicon: string}>}
 /**
- *
+ * Дістає {title, favicon} для URL. Використовує tauri-plugin-http (Rust-проксі,
+ * без CORS), бо WebView fetch до зовнішніх доменів блокується browser-policy.
+ * Повертає {title, favicon}; помилки кидаються до caller'а (Vue catch + show).
+ * @param {string} url - URL сторінки для завантаження.
+ * @returns {Promise<{title: string, favicon: string}>} Метадані сторінки.
  */
 export async function fetchPageMeta(url) {
   // 10s timeout — share-флоу інтерактивний, далі чекати безглуздо.

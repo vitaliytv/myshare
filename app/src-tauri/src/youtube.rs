@@ -40,7 +40,10 @@ pub enum YoutubeError {
     #[error("supadata returned HTTP {status}: {message}")]
     Supadata { status: u16, message: String },
     #[error("жодна з мов {tried:?} недоступна; доступні: {available:?}")]
-    NoMatchingLang { tried: Vec<String>, available: Vec<String> },
+    NoMatchingLang {
+        tried: Vec<String>,
+        available: Vec<String>,
+    },
 }
 
 impl From<YoutubeError> for String {
@@ -125,7 +128,10 @@ async fn list_langs_inner(
         .ok()
         .and_then(|e| e.message.or(e.error))
         .unwrap_or_else(|| body.chars().take(200).collect());
-    Err(YoutubeError::Supadata { status: status.as_u16(), message })
+    Err(YoutubeError::Supadata {
+        status: status.as_u16(),
+        message,
+    })
 }
 
 async fn get_transcript_inner(
@@ -143,19 +149,16 @@ async fn get_transcript_inner(
     let mut tried_count = 0;
     for lang in preferred {
         tried_count += 1;
-        let url = format!(
-            "{base}/v1/youtube/transcript?videoId={video_id}&lang={lang}&text=true"
-        );
-        let resp = client
-            .get(&url)
-            .header("x-api-key", api_key)
-            .send()
-            .await?;
+        let url = format!("{base}/v1/youtube/transcript?videoId={video_id}&lang={lang}&text=true");
+        let resp = client.get(&url).header("x-api-key", api_key).send().await?;
         let status = resp.status();
         let body = resp.text().await?;
         if status.is_success() {
-            let parsed: SupadataResponse = serde_json::from_str(&body)
-                .map_err(|e| YoutubeError::Supadata { status: status.as_u16(), message: e.to_string() })?;
+            let parsed: SupadataResponse =
+                serde_json::from_str(&body).map_err(|e| YoutubeError::Supadata {
+                    status: status.as_u16(),
+                    message: e.to_string(),
+                })?;
             // supadata повертає `lang` фактично використаний — він може бути
             // не той, що ми просили (auto-fallback на default). Беремо як є.
             let language_code = parsed.lang.unwrap_or_else(|| lang.clone());
@@ -184,7 +187,10 @@ async fn get_transcript_inner(
             }
             continue;
         }
-        return Err(YoutubeError::Supadata { status: status.as_u16(), message });
+        return Err(YoutubeError::Supadata {
+            status: status.as_u16(),
+            message,
+        });
     }
     let _ = tried_count;
     Err(YoutubeError::NoMatchingLang {
@@ -195,7 +201,10 @@ async fn get_transcript_inner(
 
 /// YouTube IDs — 11 символів `[A-Za-z0-9_-]` (base64url).
 fn is_valid_video_id(id: &str) -> bool {
-    id.len() == 11 && id.chars().all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-')
+    id.len() == 11
+        && id
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-')
 }
 
 #[cfg(test)]
@@ -224,15 +233,18 @@ mod tests {
             ]))
             .match_header("x-api-key", "test_key")
             .with_status(200)
-            .with_body(
-                r#"{"content":"Привіт\nСвіт","lang":"uk","availableLangs":["uk","en"]}"#,
-            )
+            .with_body(r#"{"content":"Привіт\nСвіт","lang":"uk","availableLangs":["uk","en"]}"#)
             .create_async()
             .await;
 
-        let t = get_transcript_inner("dQw4w9WgXcQ", &["uk".into(), "en".into()], &server.url(), TEST_KEY)
-            .await
-            .unwrap();
+        let t = get_transcript_inner(
+            "dQw4w9WgXcQ",
+            &["uk".into(), "en".into()],
+            &server.url(),
+            TEST_KEY,
+        )
+        .await
+        .unwrap();
         assert_eq!(t.language_code, "uk");
         assert_eq!(t.text, "Привіт\nСвіт");
         assert_eq!(t.available_langs, vec!["uk", "en"]);
@@ -256,9 +268,14 @@ mod tests {
             .create_async()
             .await;
 
-        let t = get_transcript_inner("dQw4w9WgXcQ", &["uk".into(), "en".into()], &server.url(), TEST_KEY)
-            .await
-            .unwrap();
+        let t = get_transcript_inner(
+            "dQw4w9WgXcQ",
+            &["uk".into(), "en".into()],
+            &server.url(),
+            TEST_KEY,
+        )
+        .await
+        .unwrap();
         assert_eq!(t.language_code, "en");
         assert_eq!(t.text, "hello");
     }
@@ -275,9 +292,14 @@ mod tests {
             .create_async()
             .await;
 
-        let err = get_transcript_inner("dQw4w9WgXcQ", &["uk".into(), "en".into()], &server.url(), TEST_KEY)
-            .await
-            .unwrap_err();
+        let err = get_transcript_inner(
+            "dQw4w9WgXcQ",
+            &["uk".into(), "en".into()],
+            &server.url(),
+            TEST_KEY,
+        )
+        .await
+        .unwrap_err();
         match err {
             YoutubeError::NoMatchingLang { tried, available } => {
                 assert_eq!(tried, vec!["uk", "en"]);
@@ -314,7 +336,10 @@ mod tests {
         let mut server = mockito::Server::new_async().await;
         let _m = server
             .mock("GET", "/v1/youtube/transcript")
-            .match_query(mockito::Matcher::UrlEncoded("videoId".into(), "dQw4w9WgXcQ".into()))
+            .match_query(mockito::Matcher::UrlEncoded(
+                "videoId".into(),
+                "dQw4w9WgXcQ".into(),
+            ))
             .with_status(200)
             .with_body(r#"{"content":"hi","lang":"en","availableLangs":["uk","en","de"]}"#)
             .create_async()

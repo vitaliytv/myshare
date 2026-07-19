@@ -252,7 +252,7 @@ import { AgentDialog, AuditDialog } from '@7n/tauri-components/components'
 import { useUpdater } from '@7n/tauri-components/vue'
 import { consumePendingSharedText, extractSharedUrl } from './shared-url.js'
 import { addLink, listLinkRecords, listLinks, removeLink } from './link-store.js'
-import { useAgent } from './composables/use-agent.js'
+import { useAcpAgent } from './composables/use-acp-agent.js'
 import { isAndroidPlatform } from './platform.js'
 import { extractYoutubeVideoId } from './youtube.js'
 import { captionStatus, loadLangsCache, saveLangsCache } from './caption-langs.js'
@@ -287,7 +287,7 @@ const helperInput = ref('')
 
 const appVersion = ref('')
 const urlHistory = ref([])
-const agent = useAgent()
+const agent = useAcpAgent()
 useUpdater()
 const agentOpen = ref(false)
 const auditOpen = ref(false)
@@ -320,7 +320,7 @@ const selectedModel = ref(DEFAULT_MODEL)
  *
  */
 function onModelChange(model) {
-  saveModelPref(model, globalThis.localStorage)
+  saveModelPref(model, localStorage)
 }
 
 // Фетчить metadata для url якщо ще не починали; кешує у metaByUrl.
@@ -368,7 +368,7 @@ async function ensureCaptionLangs(url, videoId) {
   if (res.ok) {
     const langs = res.output
     langsCache.value = { ...langsCache.value, [videoId]: langs }
-    saveLangsCache(globalThis.localStorage, langsCache.value)
+    saveLangsCache(localStorage, langsCache.value)
     youtubeByUrl.value[url] = {
       ...youtubeByUrl.value[url],
       langsLoading: false,
@@ -420,7 +420,7 @@ async function handleSyncUpdated() {
     ensureMeta(url)
     ensureYoutube(url)
   }
-  translations.value = loadTranslations(globalThis.localStorage)
+  translations.value = loadTranslations(localStorage)
 }
 
 /**
@@ -437,7 +437,7 @@ function submitShareHelper() {
  *
  */
 function consumePendingAndroidShare() {
-  const text = consumePendingSharedText(globalThis.localStorage)
+  const text = consumePendingSharedText(localStorage)
   if (text) handleAndroidShare({ detail: { text } })
 }
 
@@ -527,7 +527,7 @@ async function openTranslateDialog(url) {
   if (res.ok) {
     const entry = { model: res.output.model, originalLang: 'en', segments: res.output.segments }
     translations.value = { ...translations.value, [videoId]: entry }
-    saveTranslations(globalThis.localStorage, translations.value)
+    saveTranslations(localStorage, translations.value)
     pushTranslationMutation({ videoId, entry, deleted: false })
     translateDialog.value = { ...translateDialog.value, loading: false, progress: null, segments: res.output.segments }
   } else {
@@ -538,8 +538,8 @@ async function openTranslateDialog(url) {
 // --- Lifecycle ---------------------------------------------------------------
 onMounted(async () => {
   appVersion.value = await getVersion()
-  langsCache.value = loadLangsCache(globalThis.localStorage)
-  translations.value = loadTranslations(globalThis.localStorage)
+  langsCache.value = loadLangsCache(localStorage)
+  translations.value = loadTranslations(localStorage)
   urlHistory.value = await listLinks()
   for (const url of urlHistory.value) {
     ensureMeta(url)
@@ -556,7 +556,7 @@ onMounted(async () => {
   }
 
   if (canTranslate) {
-    const saved = loadModelPref(globalThis.localStorage)
+    const saved = loadModelPref(localStorage)
     try {
       const list = await listOmlxModels()
       omlxModels.value = list

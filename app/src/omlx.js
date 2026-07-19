@@ -5,14 +5,46 @@
 // Транскрипт може бути великим, тож ріжемо його на чанки і перекладаємо
 // послідовно, зберігаючи пари «оригінал ↔ переклад» (segments) для
 // порівняння. Результат кешується викликачем (translation-cache.js).
+//
+// Це окрема, не-агентна фіча (пряма омлх-розмова для перекладу, не через
+// ACP), тож resolveOmlxBaseUrlCached/isDirectOmlxUrl тут вендорені
+// напряму — @7n/tauri-components@0.11.0 прибрав увесь omlx/runAgent-шар
+// разом з цими утилітами (useAcpAgent() тепер єдиний агентний шлях; ця
+// omlx-розмова для перекладу з ним не пов'язана і мігрувати нема на що).
 
-import { resolveOmlxBaseUrlCached } from '@7n/tauri-components'
 import { fetch } from '@tauri-apps/plugin-http'
 
 export const OMLX_BASE_URL = 'http://127.0.0.1:8000/v1'
+const PROXY_OMLX_BASE_URL = 'http://127.0.0.1:8088/v1'
+const PROBE_TIMEOUT_MS = 400
+const PROBE_TTL_MS = 12_000
+
 // Модель за замовчуванням. У myshare omlx бере її лише як preferred — якщо
 // не завантажена, `resolveModel` візьме першу зі списку `GET /v1/models`.
 export const DEFAULT_MODEL = 'gemma-4-e4b-it-OptiQ-4bit'
+
+// One-shot probe: GET {proxy origin}/health (myllm — Tauri app що форвардить
+// /v1/* на реальний omlx і логує історію запитів) з коротким timeout. 2xx →
+// проксі (і omlx позаду нього) живий; будь-що інше (timeout, refused, 502)
+// → прямий URL.
+// @returns {Promise<string>}
+/**
+ *
+ */
+async function probeOmlxBase() {
+  try {
+    const healthUrl = new URL('/health', PROXY_OMLX_BASE_URL).href
+    const signal = typeof AbortSignal?.timeout === 'function' ? AbortSignal.timeout(PROBE_TIMEOUT_MS) : undefined
+    const response = await fetch(healthUrl, { signal })
+    return response.ok ? PROXY_OMLX_BASE_URL : OMLX_BASE_URL
+  } catch {
+    return OMLX_BASE_URL
+  }
+}
+
+// Кешує ПРОМІС (не значення) — кілька одночасних викликів loadEnv() не
+// плодять паралельних /health-запитів.
+let cachedProbe = null
 
 // Ефективний base: явний аргумент виграє (тести, кастомні виклики); без
 // нього — кешований probe myllm-проксі (:8088), інакше прямий :8000.
@@ -22,7 +54,11 @@ export const DEFAULT_MODEL = 'gemma-4-e4b-it-OptiQ-4bit'
  *
  */
 async function resolveBase(base) {
-  return base ?? (await resolveOmlxBaseUrlCached({ directUrl: OMLX_BASE_URL, fetchFn: fetch }))
+  if (base) return base
+  if (!cachedProbe || Date.now() >= cachedProbe.expiresAt) {
+    cachedProbe = { promise: probeOmlxBase(), expiresAt: Date.now() + PROBE_TTL_MS }
+  }
+  return cachedProbe.promise
 }
 
 // Ріже текст на чанки не довші за maxChars, по межах абзаців (порожній
@@ -148,7 +184,7 @@ export async function translateChunk(chunk, { model = DEFAULT_MODEL, base, apiKe
     signal,
     headers: {
       'Content-Type': 'application/json',
-      ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {})
+      ...(apiKey && { Authorization: `Bearer ${apiKey}` })
     },
     body: JSON.stringify({
       model,

@@ -40,7 +40,7 @@ let reconnectTimer = null
  * @returns {void}
  */
 function notifyUpdated() {
-  if (globalThis.window !== undefined && typeof globalThis.dispatchEvent === 'function') {
+  if (globalThis.window !== undefined && typeof dispatchEvent === 'function') {
     globalThis.dispatchEvent(new CustomEvent(SYNC_UPDATED_EVENT))
   }
 }
@@ -109,13 +109,13 @@ async function applyIncoming(table, item) {
     })
     return
   }
-  const cache = loadTranslations(globalThis.localStorage)
-  _applyRemoteTranslationMutation(globalThis.localStorage, cache, {
+  const cache = loadTranslations(localStorage)
+  _applyRemoteTranslationMutation(localStorage, cache, {
     videoId: item.id,
     entry: item.value,
     deleted: item.deleted
   })
-  if (typeof item.seq === 'number') setSyncedTranslationsSeq(globalThis.localStorage, item.seq)
+  if (typeof item.seq === 'number') setSyncedTranslationsSeq(localStorage, item.seq)
 }
 
 /**
@@ -209,7 +209,7 @@ export async function flushQueue() {
  * @returns {Promise<void>}
  */
 async function pullTable(session, table) {
-  const since = table === 'links' ? await lastSyncedLinksSeq() : lastSyncedTranslationsSeq(globalThis.localStorage)
+  const since = table === 'links' ? await lastSyncedLinksSeq() : lastSyncedTranslationsSeq(localStorage)
   const response = await fetch(`${session.relayUrl}/sync/${table}/pull?since=${since}`, {
     headers: { authorization: `Bearer ${session.accessToken}` }
   })
@@ -218,7 +218,7 @@ async function pullTable(session, table) {
   const { items, latestSeq } = await response.json()
   for (const item of items) await applyIncoming(table, item)
   if (table === 'links') await setSyncedLinksSeq(latestSeq)
-  else setSyncedTranslationsSeq(globalThis.localStorage, latestSeq)
+  else setSyncedTranslationsSeq(localStorage, latestSeq)
 }
 
 /**
@@ -252,8 +252,8 @@ export async function bootstrapIfNeeded() {
     }
   }
 
-  if (lastSyncedTranslationsSeq(globalThis.localStorage) === 0) {
-    const cache = loadTranslations(globalThis.localStorage)
+  if (lastSyncedTranslationsSeq(localStorage) === 0) {
+    const cache = loadTranslations(localStorage)
     for (const [videoId, entry] of Object.entries(cache)) {
       if (!entry.deleted) await pushMutation('translations', { id: videoId, value: entry, deleted: false })
     }
@@ -280,7 +280,7 @@ async function handleWsMessage(event) {
     }
     case 'push-ack': {
       if (msg.table === 'links') await setSyncedLinksSeq(msg.seq)
-      else setSyncedTranslationsSeq(globalThis.localStorage, msg.seq)
+      else setSyncedTranslationsSeq(localStorage, msg.seq)
       break
     }
     // No default
@@ -310,7 +310,7 @@ async function connect() {
         token: session.accessToken,
         deviceId,
         linksSince: await lastSyncedLinksSeq(),
-        translationsSince: lastSyncedTranslationsSeq(globalThis.localStorage)
+        translationsSince: lastSyncedTranslationsSeq(localStorage)
       })
     )
   })
