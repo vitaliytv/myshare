@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.4.1] - 2026-07-22
+
+### Changed
+
+- chore(deps): bump @7n/rules ^1.28.1 -> ^1.30.0
+- chore(deps): bump @7n/tauri-components ^0.8.0 → ^0.11.1; міграція useAgent→useAcpAgent, вендор resolveOmlx у omlx.js
+
+### Fixed
+
+- Реєстрація Quasar Dialog/Notify у main.js — useUpdater() ($q.dialog) і toast-повідомлення про помилки з AgentDialog/AuditDialog ($q.notify) мовчки падали, бо жоден з плагінів не був зареєстрований
+
 ## [0.4.0] - 2026-07-13
 
 ### Added

@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.2.1] - 2026-07-22
+
+### Changed
+
+- chore(deps): n-taze bump — jose 6, @quasar/extras 2, @7n/tauri-components 0.11; rules; sync
+
 ## [0.2.0] - 2026-07-13
 
 ### Added
